@@ -52,6 +52,10 @@ export class UserSearchHistoryService {
       }
       const contacts = await contactsResponse.json();
 
+      // Récupérer les détails de mission pour vérifier si tous les formulaires sont remplis
+      const missionDetailsResponse = await fetch(`${this.API_BASE}/mission-details/${search._id}`);
+      const missionDetails = missionDetailsResponse.ok ? await missionDetailsResponse.json() : [];
+
       // Calculer les volumes
       const confirmedVolume = contacts
         .filter((c: any) => c.status === 'yes')
@@ -64,13 +68,27 @@ export class UserSearchHistoryService {
       const remainingVolume = search.quantite - confirmedVolume - pendingVolume;
       const progressPercentage = Math.round(((confirmedVolume + pendingVolume) / search.quantite) * 100);
 
-      // Déterminer le statut
+      // Vérifier si tous les transporteurs confirmés ont rempli leur formulaire
+      const confirmedCarriers = contacts.filter((c: any) => c.status === 'yes' && c.volume > 0);
+      const carriersWithForms = missionDetails.map((detail: any) => detail.transporterId);
+      const allFormsCompleted = confirmedCarriers.every((carrier: any) => 
+        carriersWithForms.includes(carrier.transporterId)
+      );
+
+      // Déterminer le statut selon la nouvelle logique
       let status: 'completed' | 'in-progress' | 'pending';
-      if (progressPercentage >= 100) {
+      
+      if (progressPercentage >= 100 && allFormsCompleted && pendingVolume === 0) {
+        // Terminé : 100% couvert + tous confirmés + tous formulaires remplis
         status = 'completed';
+      } else if (progressPercentage >= 100 && (pendingVolume > 0 || !allFormsCompleted)) {
+        // En attente de terminaison : 100% couvert mais avec pré-réservés ou formulaires manquants
+        status = 'in-progress';
       } else if (confirmedVolume > 0 || pendingVolume > 0) {
+        // En cours : du volume alloué mais pas 100%
         status = 'in-progress';
       } else {
+        // En attente : aucun volume alloué
         status = 'pending';
       }
 
@@ -112,6 +130,35 @@ export class UserSearchHistoryService {
       return searchesWithStatus.filter((search): search is SearchWithStatus => search !== null);
     } catch (error) {
       console.error('Erreur lors de la récupération des recherches récentes:', error);
+      return [];
+    }
+  }
+
+  static async getUserSearchHistory(userId: string): Promise<SearchWithStatus[]> {
+    try {
+      const searches = await this.getUserSearches(userId);
+      
+      // Récupérer le statut pour chaque recherche
+      const searchesWithStatus = await Promise.all(
+        searches.map(search => this.getSearchWithStatus(search))
+      );
+
+      return searchesWithStatus.filter((search): search is SearchWithStatus => search !== null);
+    } catch (error) {
+      console.error('Erreur lors de la récupération de l\'historique des recherches:', error);
+      return [];
+    }
+  }
+
+  static async getTransporterContacts(searchId: string): Promise<any[]> {
+    try {
+      const response = await fetch(`${this.API_BASE}/transporter-contacts/${searchId}`);
+      if (!response.ok) {
+        return [];
+      }
+      return await response.json();
+    } catch (error) {
+      console.error('Erreur lors de la récupération des contacts transporteurs:', error);
       return [];
     }
   }

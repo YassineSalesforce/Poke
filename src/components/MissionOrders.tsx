@@ -1,8 +1,9 @@
-import { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Card, CardContent } from './ui/card';
 import { Button } from './ui/button';
 import { Badge } from './ui/badge';
+import { MissionDetailsService } from '../services/MissionDetailsService';
 import { 
   MapPin, 
   Truck, 
@@ -34,6 +35,7 @@ interface MissionOrdersProps {
   onBackToDashboard?: () => void;
   searchCriteria?: any;
   carrierReturns?: any[];
+  searchId?: string;
 }
 
 interface OrderData {
@@ -57,7 +59,33 @@ interface OrderData {
   sent: boolean;
 }
 
-export function MissionOrders({ onBack, onBackToDashboard, searchCriteria, carrierReturns }: MissionOrdersProps) {
+export function MissionOrders({ onBack, onBackToDashboard, searchCriteria, carrierReturns, searchId }: MissionOrdersProps) {
+  const [missionDetails, setMissionDetails] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  // Charger les détails de mission depuis la base de données
+  useEffect(() => {
+    const loadMissionDetails = async () => {
+      if (!searchId) {
+        setLoading(false);
+        return;
+      }
+
+      try {
+        console.log('📡 MissionOrders - Chargement des détails de mission pour searchId:', searchId);
+        const details = await MissionDetailsService.getMissionDetailsBySearchId(searchId);
+        console.log('📊 MissionOrders - Détails de mission reçus:', details);
+        setMissionDetails(details);
+      } catch (error) {
+        console.error('❌ MissionOrders - Erreur lors du chargement des détails:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadMissionDetails();
+  }, [searchId]);
+
   // Fonction pour extraire ville et code postal
   const extractCityAndPostalCode = (fullAddress: string) => {
     if (!fullAddress) return 'Adresse non définie';
@@ -84,32 +112,44 @@ export function MissionOrders({ onBack, onBackToDashboard, searchCriteria, carri
 
     return carrierReturns
       .filter(carrier => carrier.response === 'yes' && carrier.ensemblesTaken) // Seulement les confirmés
-      .map((carrier, index) => ({
-        id: `order-${index + 1}`,
-        carrierName: carrier.name,
-        route: carrier.route,
-        vehicleType: searchCriteria?.typeVehicule || 'Tous',
-        merchandise: 'Granulats', // Par défaut, peut être modifié
-        ensembles: parseInt(carrier.ensemblesTaken) || 0,
-        weight: parseInt(carrier.ensemblesTaken) * 27, // Estimation: 27T par ensemble
-        loadingLocation: searchCriteria?.departAdresse || 'Départ',
-        loadingDate: new Date(Date.now() + 24 * 60 * 60 * 1000).toLocaleDateString('fr-FR'), // Demain
-        loadingTime: '08h00',
-        deliveryLocation: searchCriteria?.arriveeAdresse || 'Arrivée',
-        deliveryDate: new Date(Date.now() + 2 * 24 * 60 * 60 * 1000).toLocaleDateString('fr-FR'), // Après-demain
-        deliveryTime: '18h00',
-        pricePerEnsemble: 1200,
-        totalPrice: parseInt(carrier.ensemblesTaken) * 1200,
-        status: 'validated' as const,
-        generated: false,
-        sent: false,
-      }));
+      .map((carrier, index) => {
+        // Trouver les détails de mission pour ce transporteur
+        const details = missionDetails.find(detail => detail.transporterId === carrier.id);
+        
+        return {
+          id: `order-${index + 1}`,
+          carrierName: carrier.name,
+          route: carrier.route,
+          vehicleType: searchCriteria?.typeVehicule || 'Tous',
+          merchandise: details?.merchandise || 'Granulats',
+          ensembles: parseInt(carrier.ensemblesTaken) || 0,
+          weight: parseInt(carrier.ensemblesTaken) * 27, // Estimation: 27T par ensemble
+          loadingLocation: searchCriteria?.departAdresse || 'Départ',
+          loadingDate: details?.loadingDate ? new Date(details.loadingDate).toLocaleDateString('fr-FR') : new Date(Date.now() + 24 * 60 * 60 * 1000).toLocaleDateString('fr-FR'),
+          loadingTime: details?.loadingTime || '08h00',
+          deliveryLocation: searchCriteria?.arriveeAdresse || 'Arrivée',
+          deliveryDate: details?.deliveryDate ? new Date(details.deliveryDate).toLocaleDateString('fr-FR') : new Date(Date.now() + 2 * 24 * 60 * 60 * 1000).toLocaleDateString('fr-FR'),
+          deliveryTime: details?.deliveryTime || '18h00',
+          pricePerEnsemble: details?.estimatedPrice || 1200,
+          totalPrice: parseInt(carrier.ensemblesTaken) * (details?.estimatedPrice || 1200),
+          status: 'validated' as const,
+          generated: false,
+          sent: false,
+          notes: details?.notes || ''
+        };
+      });
   };
 
-  const [orders, setOrders] = useState<OrderData[]>(generateOrdersFromReturns());
-
+  const [orders, setOrders] = useState<OrderData[]>([]);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [showSendModal, setShowSendModal] = useState(false);
+
+  // Mettre à jour les ordres quand les détails de mission sont chargés
+  useEffect(() => {
+    if (!loading) {
+      setOrders(generateOrdersFromReturns());
+    }
+  }, [missionDetails, loading, carrierReturns]);
   const [selectedCarrier, setSelectedCarrier] = useState<string>('');
   const [showAllExportedModal, setShowAllExportedModal] = useState(false);
 
@@ -187,6 +227,15 @@ export function MissionOrders({ onBack, onBackToDashboard, searchCriteria, carri
             <BreadcrumbList>
               <BreadcrumbItem>
                 <BreadcrumbLink 
+                  onClick={onBackToDashboard || (() => window.location.reload())}
+                  className="cursor-pointer hover:underline text-white"
+                >
+                  Tableau de bord
+                </BreadcrumbLink>
+              </BreadcrumbItem>
+              <BreadcrumbSeparator />
+              <BreadcrumbItem>
+                <BreadcrumbLink 
                   onClick={onBack}
                   className="cursor-pointer hover:underline text-white"
                 >
@@ -253,8 +302,6 @@ export function MissionOrders({ onBack, onBackToDashboard, searchCriteria, carri
                       <span className="text-sm">Type : {searchCriteria?.typeVehicule || 'Tous'}</span>
                     </div>
                     <div className="flex items-center gap-2">
-                      <Package className="w-4 h-4 text-gray-500" />
-                      <span className="text-sm">Marchandise : Granulats</span>
                     </div>
                   </div>
 
@@ -267,18 +314,10 @@ export function MissionOrders({ onBack, onBackToDashboard, searchCriteria, carri
                   {/* Dates */}
                   <div className="pl-8 border-l border-gray-200 space-y-2">
                     <div className="flex items-center gap-2">
-                      <Calendar className="w-4 h-4 text-gray-500" />
-                      <div>
-                        <span className="text-xs text-gray-500">Chargement : </span>
-                        <span className="text-sm">24/10/2025</span>
-                      </div>
+                      
                     </div>
                     <div className="flex items-center gap-2">
-                      <Calendar className="w-4 h-4 text-gray-500" />
-                      <div>
-                        <span className="text-xs text-gray-500">Livraison : </span>
-                        <span className="text-sm">25/10/2025</span>
-                      </div>
+                      
                     </div>
                   </div>
                 </div>
@@ -363,7 +402,7 @@ export function MissionOrders({ onBack, onBackToDashboard, searchCriteria, carri
                           </div>
                           <div>
                             <p className="text-sm text-gray-500">Quantité</p>
-                            <p className="text-sm">{order.ensembles} ensemble{order.ensembles > 1 ? 's' : ''} – {order.weight} tonnes</p>
+                            <p className="text-sm">{order.ensembles} ensemble{order.ensembles > 1 ? 's' : ''} </p>
                           </div>
                         </div>
 

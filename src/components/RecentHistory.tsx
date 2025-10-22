@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Badge } from './ui/badge';
 import { ArrowRight, Loader2 } from 'lucide-react';
@@ -64,12 +64,10 @@ export function RecentHistory({ userId, onSearchClick }: RecentHistoryProps) {
       if (cityMatch) {
         return `${cityMatch[1]} ${cityMatch[2]}`;
       }
-      // Si on trouve juste la ville sans code postal
       if (cityPart.length > 0) {
         return cityPart;
       }
     }
-    // Si on ne peut pas extraire proprement, afficher l'adresse complète
     return fullAddress;
   };
 

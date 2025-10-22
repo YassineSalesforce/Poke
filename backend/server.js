@@ -63,6 +63,39 @@ const transporterContactSchema = new mongoose.Schema({
 
 const TransporterContact = mongoose.model('TransporterContact', transporterContactSchema);
 
+// Schéma pour les détails de mission
+const missionDetailsSchema = new mongoose.Schema({
+  searchId: { type: String, required: true }, // ID de la recherche liée
+  userId: { type: String, required: true },
+  transporterId: { type: String, required: true },
+  transporterName: { type: String, required: true },
+  route: { type: String, required: true },
+  ensemblesTaken: { type: String, required: true },
+  merchandise: { type: String, required: true },
+  loadingDate: { type: String, required: true },
+  loadingTime: { type: String, required: true },
+  deliveryDate: { type: String, required: true },
+  deliveryTime: { type: String, required: true },
+  estimatedPrice: { type: Number, required: true },
+  notes: { type: String },
+  createdAt: { type: Date, default: Date.now },
+  updatedAt: { type: Date, default: Date.now }
+});
+
+const MissionDetails = mongoose.model('MissionDetails', missionDetailsSchema);
+
+// Schéma pour les favoris transporteurs
+const transporterFavoriteSchema = new mongoose.Schema({
+  userId: { type: String, required: true },
+  transporterId: { type: String, required: true },
+  transporterName: { type: String, required: true },
+  successfulMissions: { type: Number, default: 0 }, // Nombre de missions réussies
+  createdAt: { type: Date, default: Date.now },
+  updatedAt: { type: Date, default: Date.now }
+});
+
+const TransporterFavorite = mongoose.model('TransporterFavorite', transporterFavoriteSchema);
+
 const authenticateToken = (req, res, next) => {
   const authHeader = req.headers['authorization'];
   const token = authHeader && authHeader.split(' ')[1];
@@ -249,10 +282,26 @@ app.post('/api/transporter-contacts', async (req, res) => {
       updatedAt: new Date(),
     };
 
-    const transporterContact = new TransporterContact(contactData);
-    await transporterContact.save();
+    // Vérifier si un contact existe déjà pour ce transporteur et cette recherche
+    const existingContact = await TransporterContact.findOne({
+      searchId: contactData.searchId,
+      transporterId: contactData.transporterId
+    });
 
-    res.status(201).json(transporterContact);
+    if (existingContact) {
+      // Mettre à jour le contact existant
+      const updatedContact = await TransporterContact.findByIdAndUpdate(
+        existingContact._id,
+        { ...contactData, updatedAt: new Date() },
+        { new: true }
+      );
+      res.json(updatedContact);
+    } else {
+      // Créer un nouveau contact
+      const transporterContact = new TransporterContact(contactData);
+      await transporterContact.save();
+      res.status(201).json(transporterContact);
+    }
   } catch (error) {
     console.error('Erreur lors de la sauvegarde du contact:', error);
     res.status(500).json({ message: 'Erreur serveur' });
@@ -271,6 +320,169 @@ app.get('/api/transporter-contacts/:searchId', async (req, res) => {
     res.json(contacts);
   } catch (error) {
     console.error('Erreur lors de la récupération des contacts:', error);
+    res.status(500).json({ message: 'Erreur serveur' });
+  }
+});
+
+// Routes pour les détails de mission
+app.post('/api/mission-details', async (req, res) => {
+  try {
+    const missionData = {
+      ...req.body,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+
+    // Vérifier si des détails existent déjà pour ce transporteur et cette recherche
+    const existingDetails = await MissionDetails.findOne({
+      searchId: missionData.searchId,
+      transporterId: missionData.transporterId
+    });
+
+    if (existingDetails) {
+      // Mettre à jour les détails existants
+      const updatedDetails = await MissionDetails.findByIdAndUpdate(
+        existingDetails._id,
+        { ...missionData, updatedAt: new Date() },
+        { new: true }
+      );
+      res.json(updatedDetails);
+    } else {
+      // Créer de nouveaux détails
+      const missionDetails = new MissionDetails(missionData);
+      await missionDetails.save();
+      res.status(201).json(missionDetails);
+    }
+  } catch (error) {
+    console.error('Erreur lors de la sauvegarde des détails de mission:', error);
+    res.status(500).json({ message: 'Erreur serveur' });
+  }
+});
+
+app.get('/api/mission-details/:searchId', async (req, res) => {
+  try {
+    const { searchId } = req.params;
+
+    const missionDetails = await MissionDetails
+      .find({ searchId })
+      .sort({ createdAt: -1 })
+      .exec();
+
+    res.json(missionDetails);
+  } catch (error) {
+    console.error('Erreur lors de la récupération des détails de mission:', error);
+    res.status(500).json({ message: 'Erreur serveur' });
+  }
+});
+
+app.get('/api/mission-details/:searchId/:transporterId', async (req, res) => {
+  try {
+    const { searchId, transporterId } = req.params;
+
+    const missionDetails = await MissionDetails.findOne({
+      searchId,
+      transporterId
+    });
+
+    if (!missionDetails) {
+      return res.status(404).json({ message: 'Détails de mission non trouvés' });
+    }
+
+    res.json(missionDetails);
+  } catch (error) {
+    console.error('Erreur lors de la récupération des détails de mission:', error);
+    res.status(500).json({ message: 'Erreur serveur' });
+  }
+});
+
+// Routes pour les favoris transporteurs
+app.post('/api/transporter-favorites', async (req, res) => {
+  try {
+    const { userId, transporterId, transporterName } = req.body;
+
+    // Vérifier si le favori existe déjà
+    const existingFavorite = await TransporterFavorite.findOne({
+      userId,
+      transporterId
+    });
+
+    if (existingFavorite) {
+      return res.status(400).json({ message: 'Transporteur déjà en favori' });
+    }
+
+    const favorite = new TransporterFavorite({
+      userId,
+      transporterId,
+      transporterName,
+      createdAt: new Date(),
+      updatedAt: new Date()
+    });
+
+    await favorite.save();
+    res.status(201).json(favorite);
+  } catch (error) {
+    console.error('Erreur lors de l\'ajout du favori:', error);
+    res.status(500).json({ message: 'Erreur serveur' });
+  }
+});
+
+app.delete('/api/transporter-favorites/:userId/:transporterId', async (req, res) => {
+  try {
+    const { userId, transporterId } = req.params;
+
+    const deletedFavorite = await TransporterFavorite.findOneAndDelete({
+      userId,
+      transporterId
+    });
+
+    if (!deletedFavorite) {
+      return res.status(404).json({ message: 'Favori non trouvé' });
+    }
+
+    res.json({ message: 'Favori supprimé avec succès' });
+  } catch (error) {
+    console.error('Erreur lors de la suppression du favori:', error);
+    res.status(500).json({ message: 'Erreur serveur' });
+  }
+});
+
+app.get('/api/transporter-favorites/:userId', async (req, res) => {
+  try {
+    const { userId } = req.params;
+
+    const favorites = await TransporterFavorite
+      .find({ userId })
+      .sort({ successfulMissions: -1, createdAt: -1 })
+      .exec();
+
+    res.json(favorites);
+  } catch (error) {
+    console.error('Erreur lors de la récupération des favoris:', error);
+    res.status(500).json({ message: 'Erreur serveur' });
+  }
+});
+
+// Route pour mettre à jour le nombre de missions réussies
+app.put('/api/transporter-favorites/:userId/:transporterId/increment', async (req, res) => {
+  try {
+    const { userId, transporterId } = req.params;
+
+    const favorite = await TransporterFavorite.findOneAndUpdate(
+      { userId, transporterId },
+      { 
+        $inc: { successfulMissions: 1 },
+        updatedAt: new Date()
+      },
+      { new: true }
+    );
+
+    if (!favorite) {
+      return res.status(404).json({ message: 'Favori non trouvé' });
+    }
+
+    res.json(favorite);
+  } catch (error) {
+    console.error('Erreur lors de la mise à jour des missions réussies:', error);
     res.status(500).json({ message: 'Erreur serveur' });
   }
 });

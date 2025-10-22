@@ -312,17 +312,11 @@ export function RouteManagement({ onBackToDashboard }: RouteManagementProps) {
           <Breadcrumb>
             <BreadcrumbList>
               <BreadcrumbItem>
-                <BreadcrumbLink 
-                  onClick={onBackToDashboard}
-                  className="cursor-pointer hover:underline"
-                  style={{ color: '#2B3A55' }}
-                >
-                  Administration
-                </BreadcrumbLink>
+                <BreadcrumbPage className="text-white">Administration</BreadcrumbPage>
               </BreadcrumbItem>
               <BreadcrumbSeparator />
               <BreadcrumbItem>
-                <BreadcrumbPage>Routes transporteurs</BreadcrumbPage>
+                <BreadcrumbPage className="text-white">Routes transporteurs</BreadcrumbPage>
               </BreadcrumbItem>
             </BreadcrumbList>
           </Breadcrumb>

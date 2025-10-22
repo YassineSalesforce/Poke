@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Card, CardContent } from './ui/card';
 import { Button } from './ui/button';
@@ -13,11 +13,19 @@ import {
   CheckCircle2,
   PartyPopper,
   AlertTriangle,
-  Package
+  Package,
+  FileText,
+  CheckCircle,
+  Clock,
+  Heart,
+  Star
 } from 'lucide-react';
 import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbPage, BreadcrumbSeparator } from './ui/breadcrumb';
 import { Alert, AlertDescription } from './ui/alert';
 import { TransporterContactService } from '../services/TransporterContactService';
+import { MissionDetailsModal, MissionDetails } from './MissionDetailsModal';
+import { MissionDetailsService, MissionDetailsData } from '../services/MissionDetailsService';
+import { TransporterFavoriteService } from '../services/TransporterFavoriteService';
 
 interface CarrierReturnsEntryProps {
   onBack: () => void;
@@ -41,8 +49,18 @@ interface CarrierReturn {
 export function CarrierReturnsEntry({ onBack, onBackToDashboard, onNext, searchCriteria, searchId }: CarrierReturnsEntryProps) {
   const totalEnsembles = searchCriteria?.quantite || 5;
   
-  const [carriers, setCarriers] = useState<CarrierReturn[]>([]);
+  const [carriers, setCarriers] = useState([]);
   const [loading, setLoading] = useState(true);
+  
+  // États pour le modal de détails de mission par transporteur
+  const [showMissionDetailsModal, setShowMissionDetailsModal] = useState(false);
+  const [selectedCarrier, setSelectedCarrier] = useState(null);
+  const [carrierMissionDetails, setCarrierMissionDetails] = useState({});
+  const [savedCarriers, setSavedCarriers] = useState(new Set());
+  
+  // États pour les favoris
+  const [favorites, setFavorites] = useState(new Set());
+  const [favoritesLoading, setFavoritesLoading] = useState(false);
 
   const extractCityAndPostalCode = (fullAddress: string) => {
     // Si pas d'adresse, retourner une valeur par défaut
@@ -65,6 +83,21 @@ export function CarrierReturnsEntry({ onBack, onBackToDashboard, onNext, searchC
     // Si on ne peut pas extraire proprement, afficher l'adresse complète
     return fullAddress;
   };
+
+  // Charger les favoris
+  useEffect(() => {
+    const loadFavorites = async () => {
+      try {
+        const userFavorites = await TransporterFavoriteService.getFavorites('user-1');
+        const favoriteIds = new Set(userFavorites.map(fav => fav.transporterId));
+        setFavorites(favoriteIds);
+      } catch (error) {
+        console.error('Erreur lors du chargement des favoris:', error);
+      }
+    };
+
+    loadFavorites();
+  }, []);
 
   // Charger les contacts depuis la base de données
   useEffect(() => {
@@ -96,6 +129,36 @@ export function CarrierReturnsEntry({ onBack, onBackToDashboard, onNext, searchC
 
         console.log('🔄 CarrierReturnsEntry - Carriers convertis:', convertedCarriers);
         setCarriers(convertedCarriers);
+
+        // Charger les détails de mission existants
+        try {
+          console.log('📡 CarrierReturnsEntry - Chargement des détails de mission pour searchId:', searchId);
+          const missionDetails = await MissionDetailsService.getMissionDetailsBySearchId(searchId);
+          console.log('📊 CarrierReturnsEntry - Détails de mission reçus:', missionDetails);
+          
+          // Convertir les détails en format local
+          const detailsMap = {};
+          const savedIds = new Set();
+          
+          missionDetails.forEach(detail => {
+            detailsMap[detail.transporterId] = {
+              merchandise: detail.merchandise,
+              loadingDate: detail.loadingDate,
+              loadingTime: detail.loadingTime,
+              deliveryDate: detail.deliveryDate,
+              deliveryTime: detail.deliveryTime,
+              estimatedPrice: detail.estimatedPrice,
+              notes: detail.notes,
+            };
+            savedIds.add(detail.transporterId);
+          });
+          
+          setCarrierMissionDetails(detailsMap);
+          setSavedCarriers(savedIds);
+          console.log('✅ CarrierReturnsEntry - Détails de mission chargés:', { detailsMap, savedIds });
+        } catch (error) {
+          console.error('❌ CarrierReturnsEntry - Erreur lors du chargement des détails de mission:', error);
+        }
       } catch (error) {
         console.error('❌ CarrierReturnsEntry - Erreur lors du chargement des contacts:', error);
       } finally {
@@ -137,8 +200,17 @@ export function CarrierReturnsEntry({ onBack, onBackToDashboard, onNext, searchC
   const totalAllocated = totalConfirmed + totalPrevisional;
   const isOverbooked = totalAllocated > totalEnsembles;
   const isComplete = totalAllocated === totalEnsembles;
+  
+  // Vérifier si tous les transporteurs sont confirmés (pas de pré-réservés)
+  const isFullyConfirmed = isComplete && totalPrevisional === 0;
+  
+  // Vérifier si tous les transporteurs confirmés ont rempli leur formulaire
+  const areAllFormsCompleted = () => {
+    const confirmedCarriers = carriers.filter(carrier => carrier.response === 'yes' && carrier.ensemblesTaken);
+    return confirmedCarriers.every(carrier => savedCarriers.has(carrier.id));
+  };
 
-  const updateCarrier = (id: string, field: keyof CarrierReturn, value: any) => {
+  const updateCarrier = async (id: string, field: keyof CarrierReturn, value: any) => {
     setCarriers(prev => prev.map(carrier => {
       if (carrier.id === id) {
         const updated = { ...carrier, [field]: value };
@@ -167,10 +239,80 @@ export function CarrierReturnsEntry({ onBack, onBackToDashboard, onNext, searchC
           updated.validated = true;
         }
         
+        // Sauvegarder automatiquement en base de données
+        saveCarrierToDatabase(updated);
+        
         return updated;
       }
       return carrier;
     }));
+  };
+
+  // Fonctions pour gérer les favoris
+  const handleToggleFavorite = async (carrier: CarrierReturn) => {
+    if (favoritesLoading) return;
+    
+    setFavoritesLoading(true);
+    try {
+      const isFavorite = favorites.has(carrier.id);
+      
+      if (isFavorite) {
+        // Retirer des favoris
+        await TransporterFavoriteService.removeFromFavorites('user-1', carrier.id);
+        setFavorites(prev => {
+          const newFavorites = new Set(prev);
+          newFavorites.delete(carrier.id);
+          return newFavorites;
+        });
+      } else {
+        // Ajouter aux favoris
+        await TransporterFavoriteService.addToFavorites('user-1', carrier.id, carrier.name);
+        setFavorites(prev => new Set(prev).add(carrier.id));
+        
+        // Si le transporteur est validé (status "yes"), incrémenter les missions réussies
+        if (carrier.response === 'yes') {
+          try {
+            await TransporterFavoriteService.incrementSuccessfulMissions('user-1', carrier.id);
+          } catch (error) {
+            console.error('Erreur lors de l\'incrémentation des missions réussies:', error);
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Erreur lors de la gestion des favoris:', error);
+    } finally {
+      setFavoritesLoading(false);
+    }
+  };
+
+  // Fonction pour sauvegarder les changements en base de données
+  const saveCarrierToDatabase = async (carrier: CarrierReturn) => {
+    if (!searchId) return;
+    
+    try {
+      console.log('💾 Sauvegarde automatique du transporteur:', carrier.name, carrier);
+      
+      // Préparer les données pour l'API
+      const contactData = {
+        searchId: searchId,
+        userId: 'user-1', // TODO: Récupérer l'ID utilisateur depuis le contexte d'auth
+        transporterId: carrier.id,
+        transporterName: carrier.name,
+        route: carrier.route,
+        vehicleType: searchCriteria?.typeVehicule || 'Tous',
+        status: carrier.response,
+        volume: carrier.response === 'yes' ? parseInt(carrier.ensemblesTaken || '0') : 
+                carrier.response === 'pending' ? parseInt(carrier.ensemblesPrevisional || '0') : 0,
+        comment: carrier.comment,
+      };
+
+      // Sauvegarder via l'API (créera ou mettra à jour automatiquement)
+      await TransporterContactService.saveContact(contactData);
+      console.log('✅ Transporteur sauvegardé avec succès');
+      
+    } catch (error) {
+      console.error('❌ Erreur lors de la sauvegarde du transporteur:', error);
+    }
   };
 
   const coverageRate = (totalAllocated / totalEnsembles) * 100;
@@ -189,6 +331,57 @@ export function CarrierReturnsEntry({ onBack, onBackToDashboard, onNext, searchC
       return { label: 'Refusé', color: 'bg-red-100 text-red-700', icon: '🔴' };
     }
     return { label: 'En cours', color: 'bg-gray-100 text-gray-700', icon: '⚪' };
+  };
+
+  // Fonctions pour gérer le modal de détails de mission
+  const handleOpenMissionDetails = (carrier: CarrierReturn) => {
+    console.log('Opening mission details for carrier:', carrier.name);
+    setSelectedCarrier(carrier);
+    setShowMissionDetailsModal(true);
+  };
+
+  const handleSaveMissionDetails = async (details: MissionDetails) => {
+    if (selectedCarrier && searchId) {
+      try {
+        console.log('Saving mission details for carrier:', selectedCarrier.name, details);
+        
+        const missionData: MissionDetailsData = {
+          searchId: searchId,
+          userId: 'user-1', // TODO: Récupérer l'ID utilisateur depuis le contexte d'auth
+          transporterId: selectedCarrier.id,
+          transporterName: selectedCarrier.name,
+          route: selectedCarrier.route,
+          ensemblesTaken: selectedCarrier.ensemblesTaken,
+          merchandise: details.merchandise,
+          loadingDate: details.loadingDate,
+          loadingTime: details.loadingTime,
+          deliveryDate: details.deliveryDate,
+          deliveryTime: details.deliveryTime,
+          estimatedPrice: details.estimatedPrice,
+          notes: details.notes,
+        };
+
+        // Sauvegarder en base de données
+        await MissionDetailsService.saveMissionDetails(missionData);
+        
+        // Mettre à jour l'état local
+        setCarrierMissionDetails(prev => ({
+          ...prev,
+          [selectedCarrier.id]: details
+        }));
+        
+        // Marquer le transporteur comme sauvegardé
+        setSavedCarriers(prev => new Set([...prev, selectedCarrier.id]));
+        
+        setShowMissionDetailsModal(false);
+        setSelectedCarrier(null);
+        
+        console.log('Mission details saved successfully');
+      } catch (error) {
+        console.error('Error saving mission details:', error);
+        // TODO: Afficher une notification d'erreur à l'utilisateur
+      }
+    }
   };
 
   const getRowBackground = (carrier: CarrierReturn) => {
@@ -242,9 +435,9 @@ export function CarrierReturnsEntry({ onBack, onBackToDashboard, onNext, searchC
               </Button>
               <Button
                 onClick={() => onNext && onNext(carriers)}
-                disabled={isOverbooked}
+                disabled={isOverbooked || !isFullyConfirmed || !areAllFormsCompleted()}
                 className="rounded-lg h-11 px-6 transition-all hover:shadow-lg disabled:opacity-50"
-                style={{ backgroundColor: isOverbooked ? '#ccc' : '#F6A20E', color: 'white' }}
+                style={{ backgroundColor: (isOverbooked || !isFullyConfirmed || !areAllFormsCompleted()) ? '#ccc' : '#F6A20E', color: 'white' }}
               >
                 Générer ordres de mission
               </Button>
@@ -423,14 +616,27 @@ export function CarrierReturnsEntry({ onBack, onBackToDashboard, onNext, searchC
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -20 }}
               >
-                <Alert className="bg-green-50 border-green-300">
-                  <PartyPopper className="h-4 w-4 text-green-600" />
-                  <AlertDescription>
-                    <p className="text-green-900">
-                      🎉 Mission complète – Vous pouvez générer les ordres de mission
-                    </p>
-                  </AlertDescription>
-                </Alert>
+                {isFullyConfirmed ? (
+                  // Tous les transporteurs sont confirmés
+                  <Alert className="bg-green-50 border-green-300">
+                    <PartyPopper className="h-4 w-4 text-green-600" />
+                    <AlertDescription>
+                      <p className="text-green-900">
+                        🎉 Mission complète – Vous pouvez générer les ordres de mission
+                      </p>
+                    </AlertDescription>
+                  </Alert>
+                ) : (
+                  // Il y a des pré-réservés
+                  <Alert className="bg-yellow-50 border-yellow-300">
+                    <Clock className="h-4 w-4 text-yellow-600" />
+                    <AlertDescription>
+                      <p className="text-yellow-900">
+                        ⏳ Vous avez couvert la totalité de votre quantité demandée en attente de validation
+                      </p>
+                    </AlertDescription>
+                  </Alert>
+                )}
               </motion.div>
             )}
           </AnimatePresence>
@@ -463,8 +669,25 @@ export function CarrierReturnsEntry({ onBack, onBackToDashboard, onNext, searchC
                       className={`grid grid-cols-[2fr_1.5fr_1.2fr_1fr_1fr_2fr_1fr] gap-4 px-4 py-4 rounded-lg border transition-all ${getRowBackground(carrier)}`}
                     >
                       {/* Carrier Name */}
-                      <div className="flex items-center">
+                      <div className="flex items-center gap-2">
                         <span className="text-sm">{carrier.name}</span>
+                        <button
+                          onClick={() => handleToggleFavorite(carrier)}
+                          disabled={favoritesLoading}
+                          className={`p-1 rounded-full transition-all hover:scale-110 ${
+                            favorites.has(carrier.id) 
+                              ? 'text-yellow-400 hover:text-yellow-300' 
+                              : 'text-gray-400 hover:text-yellow-400'
+                          } ${favoritesLoading ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
+                          title={favorites.has(carrier.id) ? 'Retirer des favoris' : 'Ajouter aux favoris'}
+                        >
+                          <Star 
+                            size={16} 
+                            fill={favorites.has(carrier.id) ? '#fbbf24' : 'none'}
+                            stroke={favorites.has(carrier.id) ? '#fbbf24' : '#9ca3af'}
+                            className={favorites.has(carrier.id) ? 'text-yellow-400' : 'text-gray-400'}
+                          />
+                        </button>
                       </div>
 
                       {/* Route */}
@@ -532,7 +755,7 @@ export function CarrierReturnsEntry({ onBack, onBackToDashboard, onNext, searchC
                       </div>
 
                       {/* Status */}
-                      <div className="flex items-center">
+                      <div className="flex items-center gap-2">
                         <motion.div
                           key={`${carrier.response}-${carrier.validated}`}
                           initial={{ scale: 0.8 }}
@@ -543,6 +766,31 @@ export function CarrierReturnsEntry({ onBack, onBackToDashboard, onNext, searchC
                             <span className="text-xs">{statusConfig.label}</span>
                           </Badge>
                         </motion.div>
+                        
+                        {/* Bouton détails mission pour les transporteurs confirmés */}
+                        {carrier.response === 'yes' && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => handleOpenMissionDetails(carrier)}
+                            className={`h-7 w-7 p-0 rounded-full transition-all ${
+                              savedCarriers.has(carrier.id)
+                                ? 'bg-green-50 border-green-300 hover:bg-green-100'
+                                : 'hover:bg-orange-50 hover:border-orange-300'
+                            }`}
+                            title={
+                              savedCarriers.has(carrier.id)
+                                ? "Détails sauvegardés - Cliquer pour modifier"
+                                : "Formulaire de détails de la mission"
+                            }
+                          >
+                            {savedCarriers.has(carrier.id) ? (
+                              <CheckCircle className="w-3 h-3 text-green-600" />
+                            ) : (
+                              <FileText className="w-3 h-3 text-orange-600" />
+                            )}
+                          </Button>
+                        )}
                       </div>
                     </motion.div>
                   );
@@ -589,6 +837,30 @@ export function CarrierReturnsEntry({ onBack, onBackToDashboard, onNext, searchC
           </div>
         </div>
       </main>
+
+      {/* Modal de détails de mission pour le transporteur sélectionné */}
+      {selectedCarrier && (
+        <MissionDetailsModal
+          isOpen={showMissionDetailsModal}
+          onClose={() => {
+            console.log('Closing modal');
+            setShowMissionDetailsModal(false);
+            setSelectedCarrier(null);
+          }}
+          onSave={handleSaveMissionDetails}
+          carrierName={selectedCarrier.name}
+          route={selectedCarrier.route}
+          ensemblesTaken={selectedCarrier.ensemblesTaken}
+          initialData={carrierMissionDetails[selectedCarrier.id] || {
+            merchandise: 'Granulats',
+            loadingDate: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+            loadingTime: '08:00',
+            deliveryDate: new Date(Date.now() + 2 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+            deliveryTime: '18:00',
+            estimatedPrice: 1200,
+          }}
+        />
+      )}
     </div>
   );
 }

@@ -317,6 +317,7 @@ function AppContent() {
               onBackToDashboard={handleBackToDashboard}
               searchCriteria={searchCriteria}
               carrierReturns={carrierReturns}
+              searchId={searchCriteria?.searchId}
             />
           </motion.div>
         )}
