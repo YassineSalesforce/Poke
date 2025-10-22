@@ -34,12 +34,18 @@ export function GeocodingInput({
   const suggestionsRef = useRef<HTMLDivElement>(null);
   const timeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Géocoder l'adresse quand elle change
+  // Géocoder l'adresse quand elle change (seulement si pas de suggestions ouvertes)
   useEffect(() => {
     if (!value || value.length < 3) {
       setGeocodeResult(null);
       setShowDetails(false);
       setError(null);
+      setShowSuggestions(false);
+      return;
+    }
+
+    // Si les suggestions sont ouvertes, ne pas géocoder automatiquement
+    if (showSuggestions) {
       return;
     }
 
@@ -79,35 +85,46 @@ export function GeocodingInput({
       } finally {
         setIsAnalyzing(false);
       }
-    }, 800); // Délai de 800ms pour éviter trop de requêtes
+    }, 1000); // Délai augmenté à 1000ms pour éviter les conflits
 
     return () => {
       if (timeoutRef.current) {
         clearTimeout(timeoutRef.current);
       }
     };
-  }, [value, onGeocodeResult, isManualSelection]);
+  }, [value, onGeocodeResult, isManualSelection, showSuggestions]);
 
-  // Générer des suggestions
+  // Générer des suggestions (avec délai pour éviter les conflits)
   useEffect(() => {
-    if (value && value.length >= 3) {
-      const fetchSuggestions = async () => {
-        try {
-          const newSuggestions = await GeocodingService.getSuggestions(value);
-          setSuggestions(newSuggestions);
-          setShowSuggestions(newSuggestions.length > 0);
-        } catch (err) {
-          console.error('Erreur lors de la récupération des suggestions:', err);
-          setSuggestions([]);
-          setShowSuggestions(false);
-        }
-      };
-
-      fetchSuggestions();
-    } else {
+    if (!value || value.length < 3) {
       setSuggestions([]);
       setShowSuggestions(false);
+      return;
     }
+
+    // Annuler le timeout précédent
+    if (timeoutRef.current) {
+      clearTimeout(timeoutRef.current);
+    }
+
+    // Délai pour éviter trop de requêtes
+    timeoutRef.current = setTimeout(async () => {
+      try {
+        const newSuggestions = await GeocodingService.getSuggestions(value);
+        setSuggestions(newSuggestions);
+        setShowSuggestions(newSuggestions.length > 0);
+      } catch (err) {
+        console.error('Erreur lors de la récupération des suggestions:', err);
+        setSuggestions([]);
+        setShowSuggestions(false);
+      }
+    }, 500); // Délai plus court pour les suggestions
+
+    return () => {
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+      }
+    };
   }, [value]);
 
   // Fermer les suggestions quand on clique ailleurs
@@ -123,13 +140,30 @@ export function GeocodingInput({
   }, []);
 
   const handleSuggestionClick = (suggestion: GeocodingResult) => {
-    setIsManualSelection(true);
-    onChange(suggestion.formattedAddress);
-    setGeocodeResult(suggestion);
-    onGeocodeResult?.(suggestion);
+    // Fermer les suggestions immédiatement
     setShowSuggestions(false);
+    setSuggestions([]);
+    
+    // Marquer comme sélection manuelle pour éviter le géocodage automatique
+    setIsManualSelection(true);
+    
+    // Mettre à jour la valeur
+    onChange(suggestion.formattedAddress);
+    
+    // Définir le résultat de géocodage
+    setGeocodeResult(suggestion);
+    
+    // Notifier le parent
+    onGeocodeResult?.(suggestion);
+    
+    // Toujours montrer les détails pour une sélection manuelle
     setShowDetails(true);
     setError(null);
+    
+    // Focus sur l'input
+    if (inputRef.current) {
+      inputRef.current.focus();
+    }
   };
 
   const getStatusIcon = () => {
@@ -174,7 +208,17 @@ export function GeocodingInput({
             placeholder={placeholder}
             value={value}
             onChange={(e) => onChange(e.target.value)}
-            onFocus={() => setShowSuggestions(suggestions.length > 0)}
+            onFocus={() => {
+              if (suggestions.length > 0) {
+                setShowSuggestions(true);
+              }
+            }}
+            onBlur={() => {
+              // Délai pour permettre le clic sur les suggestions
+              setTimeout(() => {
+                setShowSuggestions(false);
+              }, 200);
+            }}
             className={`pl-14 h-12 ${getStatusColor()} focus:border-orange-500 focus:ring-orange-500`}
           />
         </div>

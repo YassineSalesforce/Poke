@@ -172,11 +172,40 @@ export class GeocodingService {
       city,
       postalCode,
       zoneCode,
-      formattedAddress: result.display_name,
+      formattedAddress: this.generateConciseAddress(city, region, country, zoneCode),
       latitude: parseFloat(result.lat),
       longitude: parseFloat(result.lon),
       confidence
     };
+  }
+
+  /**
+   * Génère une adresse concise avec seulement : ville, région, pays, code de zone
+   */
+  private static generateConciseAddress(city: string, region: string, country: string, zoneCode: string): string {
+    const parts = [];
+    
+    // Ajouter la ville
+    if (city) {
+      parts.push(city);
+    }
+    
+    // Ajouter la région (seulement si différente de la ville)
+    if (region && region !== city) {
+      parts.push(region);
+    }
+    
+    // Ajouter le pays
+    if (country) {
+      parts.push(country);
+    }
+    
+    // Ajouter le code de zone
+    if (zoneCode) {
+      parts.push(`(${zoneCode})`);
+    }
+    
+    return parts.join(', ');
   }
 
   /**

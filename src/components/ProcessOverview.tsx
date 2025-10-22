@@ -217,17 +217,15 @@ export function ProcessOverview({ onBackToDashboard, onStartNewMission, onNaviga
               </BreadcrumbItem>
               <BreadcrumbSeparator />
               <BreadcrumbItem>
-                <BreadcrumbPage>Vue globale du processus</BreadcrumbPage>
+                <BreadcrumbPage style={{ color: 'white' }}>Vue globale du processus</BreadcrumbPage>
               </BreadcrumbItem>
             </BreadcrumbList>
           </Breadcrumb>
         </div>
       </header>
 
-      {/* Main Content */}
       <main className="flex-1 p-8 overflow-y-auto">
         <div className="max-w-[1600px] mx-auto space-y-8">
-          {/* Title Section */}
           <div className="text-center space-y-2">
             <h1 style={{ color: '#2B3A55' }}>Vue globale du processus d'affrètement</h1>
             <p className="text-gray-600">
@@ -235,7 +233,6 @@ export function ProcessOverview({ onBackToDashboard, onStartNewMission, onNaviga
             </p>
           </div>
 
-          {/* Progress Overview */}
           <Card className="shadow-md border-gray-200">
             <CardContent className="p-6">
               <div className="flex items-center justify-between mb-3">
@@ -249,9 +246,7 @@ export function ProcessOverview({ onBackToDashboard, onStartNewMission, onNaviga
             </CardContent>
           </Card>
 
-          {/* Timeline */}
           <div className="relative">
-            {/* Connection Line */}
             <div className="absolute top-16 left-0 right-0 h-1 bg-gray-200 z-0" style={{ margin: '0 10%' }} />
             <motion.div 
               className="absolute top-16 left-0 h-1 z-0"
@@ -264,7 +259,6 @@ export function ProcessOverview({ onBackToDashboard, onStartNewMission, onNaviga
               transition={{ duration: 1, ease: 'easeOut' }}
             />
 
-            {/* Steps */}
             <div className="grid grid-cols-5 gap-4 relative z-10">
               {steps.map((step, index) => {
                 const Icon = step.icon;
@@ -287,7 +281,6 @@ export function ProcessOverview({ onBackToDashboard, onStartNewMission, onNaviga
                       }}
                     >
                       <CardContent className="p-6">
-                        {/* Step Number Badge */}
                         <div className="absolute top-3 right-3">
                           <Badge 
                             className="text-xs"
@@ -297,7 +290,6 @@ export function ProcessOverview({ onBackToDashboard, onStartNewMission, onNaviga
                           </Badge>
                         </div>
 
-                        {/* Icon */}
                         <div className="flex flex-col items-center text-center space-y-4">
                           <motion.div
                             whileHover={{ scale: 1.1, rotate: 5 }}
@@ -322,7 +314,6 @@ export function ProcessOverview({ onBackToDashboard, onStartNewMission, onNaviga
                             )}
                           </motion.div>
 
-                          {/* Title */}
                           <div>
                             <h3 
                               className="mb-2"
@@ -335,7 +326,6 @@ export function ProcessOverview({ onBackToDashboard, onStartNewMission, onNaviga
                             </p>
                           </div>
 
-                          {/* Status Badge */}
                           <Badge className={`${statusConfig.color} flex items-center gap-1`}>
                             <StatusIcon className="w-3 h-3" />
                             {statusConfig.label}
@@ -349,9 +339,7 @@ export function ProcessOverview({ onBackToDashboard, onStartNewMission, onNaviga
             </div>
           </div>
 
-          {/* Global Summary */}
           <div className="grid grid-cols-2 gap-6">
-            {/* Summary Stats */}
             <Card className="shadow-md border-gray-200">
               <CardContent className="p-6">
                 <h2 className="mb-4" style={{ color: '#2B3A55' }}>Récapitulatif global de mission</h2>
@@ -390,17 +378,10 @@ export function ProcessOverview({ onBackToDashboard, onStartNewMission, onNaviga
                   </div>
                 </div>
 
-                <Button
-                  className="w-full mt-6 rounded-lg h-11"
-                  style={{ backgroundColor: '#F6A20E', color: 'white' }}
-                >
-                  <Download className="w-4 h-4 mr-2" />
-                  Exporter le résumé du processus
-                </Button>
+                
               </CardContent>
             </Card>
 
-            {/* Process Visualization */}
             <Card className="shadow-md border-gray-200 bg-gradient-to-br from-white to-gray-50">
               <CardContent className="p-6">
                 <h2 className="mb-4" style={{ color: '#2B3A55' }}>Efficacité du processus</h2>
@@ -446,7 +427,6 @@ export function ProcessOverview({ onBackToDashboard, onStartNewMission, onNaviga
             </Card>
           </div>
 
-          {/* Call to Action */}
           <Card className="shadow-md border-blue-200 bg-gradient-to-r from-blue-50 to-white">
             <CardContent className="p-8 text-center">
               <h2 className="mb-2" style={{ color: '#2B3A55' }}>Prêt à optimiser votre prochain affrètement ?</h2>
@@ -467,7 +447,6 @@ export function ProcessOverview({ onBackToDashboard, onStartNewMission, onNaviga
         </div>
       </main>
 
-      {/* Footer */}
       <footer className="bg-white border-t border-gray-200 px-8 py-4">
         <div className="max-w-[1600px] mx-auto flex items-center justify-between">
           <p className="text-sm text-gray-500">
@@ -483,7 +462,6 @@ export function ProcessOverview({ onBackToDashboard, onStartNewMission, onNaviga
         </div>
       </footer>
 
-      {/* Step Detail Drawer */}
       <Drawer open={isDrawerOpen} onOpenChange={setIsDrawerOpen} direction="right">
         <DrawerContent className="fixed inset-y-0 right-0 mt-0 w-[500px] rounded-none">
           {selectedStep && (
@@ -504,7 +482,6 @@ export function ProcessOverview({ onBackToDashboard, onStartNewMission, onNaviga
               </DrawerHeader>
 
               <div className="flex-1 overflow-y-auto p-6 space-y-6">
-                {/* Icon */}
                 <div className="flex justify-center">
                   <div 
                     className="w-24 h-24 rounded-full flex items-center justify-center"
@@ -517,13 +494,11 @@ export function ProcessOverview({ onBackToDashboard, onStartNewMission, onNaviga
                   </div>
                 </div>
 
-                {/* Description */}
                 <div>
                   <h3 className="mb-2" style={{ color: '#2B3A55' }}>Description</h3>
                   <p className="text-sm text-gray-600">{selectedStep.description}</p>
                 </div>
 
-                {/* Details */}
                 <div>
                   <h3 className="mb-3" style={{ color: '#2B3A55' }}>Actions de cette étape</h3>
                   <ul className="space-y-2">
@@ -542,14 +517,12 @@ export function ProcessOverview({ onBackToDashboard, onStartNewMission, onNaviga
                   </ul>
                 </div>
 
-                {/* Screen Info */}
                 <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
                   <p className="text-sm text-blue-900">
                     <strong>Écran associé :</strong> {selectedStep.screenName}
                   </p>
                 </div>
 
-                {/* Status */}
                 <div>
                   {(() => {
                     const statusConfig = getStatusConfig(selectedStep.status);

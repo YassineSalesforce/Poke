@@ -552,7 +552,7 @@ export function SearchResults({ onBack, onBackToDashboard, onNext, onCreateRoute
                   {/* Total */}
                   <div className="pl-8 border-l border-gray-200">
                     <p className="text-sm text-gray-600">Quantité totale</p>
-                    <p>{searchCriteria?.quantite || totalEnsembles} ensembles</p>
+                    <p>{searchCriteria?.quantite || totalEnsembles} tonne{searchCriteria?.quantite || totalEnsembles > 1 ? 's' : ''}</p>
                   </div>
 
                   {/* Remaining */}
@@ -565,7 +565,7 @@ export function SearchResults({ onBack, onBackToDashboard, onNext, onCreateRoute
                       className="flex items-center gap-2"
                     >
                       <span style={{ color: remainingEnsembles > 0 ? '#F6A20E' : '#4CAF50' }}>
-                        {remainingEnsembles} ensemble{remainingEnsembles > 1 ? 's' : ''}
+                        {remainingEnsembles} tonne{remainingEnsembles > 1 ? 's' : ''}
                       </span>
                       <Badge style={{ backgroundColor: remainingEnsembles > 0 ? '#FFF3E0' : '#E8F5E9', color: remainingEnsembles > 0 ? '#F6A20E' : '#4CAF50' }}>
                         {remainingEnsembles > 0 ? 'En cours' : 'Complet'}
