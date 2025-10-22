@@ -244,7 +244,7 @@ function AppContent() {
             transition={{ duration: 0.3 }}
             className="flex flex-col min-h-screen"
           >
-            <Header onNewSearch={handleNewSearch} onManageRoutes={handleGoToRouteManagement} />
+            <Header onNewSearch={handleNewSearch} onManageRoutes={handleGoToRouteManagement} onDashboard={handleBackToDashboard} />
 
             {/* Main Content */}
             <main className="flex-1 p-8">

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Card, CardContent } from './ui/card';
 import { Button } from './ui/button';
@@ -17,6 +17,7 @@ import { toast } from 'sonner';
 import { TransporterService, TransporterData, SearchCriteria } from '../services/TransporterService';
 import { MissionService, AlternativeTransporter } from '../services/MissionService';
 import { TransporterContactService } from '../services/TransporterContactService';
+import { TransporterRouteService } from '../services/TransporterRouteService';
 
 interface SearchResultsProps {
   onBack: () => void;
@@ -41,6 +42,7 @@ interface Carrier {
   ensemblesPrevisional?: number;
   comment?: string;
   lastMission?: string;
+  isAlternative?: boolean; // Ajouter le champ manquant
 }
 
 interface AlternativeCarrier {
@@ -174,7 +176,7 @@ export function SearchResults({ onBack, onBackToDashboard, onNext, onCreateRoute
     },
   ]);
   
-  const totalEnsembles = 5;
+  const totalTonnes = 5;
   const [selectedCarrier, setSelectedCarrier] = useState<Carrier | AlternativeCarrier | null>(null);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [transporters, setTransporters] = useState<TransporterData[]>([]);
@@ -185,6 +187,7 @@ export function SearchResults({ onBack, onBackToDashboard, onNext, onCreateRoute
   useEffect(() => {
     const loadTransporters = async () => {
       setIsLoading(true);
+      console.log('🔄 SearchResults - Chargement des transporteurs avec searchCriteria:', searchCriteria);
       try {
         // Charger les données depuis Excel
         await TransporterService.loadTransporters();
@@ -200,9 +203,36 @@ export function SearchResults({ onBack, onBackToDashboard, onNext, onCreateRoute
           
           let matchingTransporters = TransporterService.searchTransporters(criteria);
           
-          // Si on a des contacts mis à jour, les appliquer aux transporteurs
+          // Charger les contacts depuis la base de données pour appliquer les statuts
+          console.log('🔍 SearchResults - searchId disponible:', searchCriteria.searchId);
+          if (searchCriteria.searchId) {
+            try {
+              console.log('📡 SearchResults - Chargement des contacts pour searchId:', searchCriteria.searchId);
+              const contacts = await TransporterContactService.getContactsBySearch(searchCriteria.searchId);
+              console.log('📊 Contacts chargés pour les transporteurs correspondants:', contacts);
+              
+              // Appliquer les contacts aux transporteurs correspondants
+              matchingTransporters = matchingTransporters.map(transporter => {
+                const contact = contacts.find(c => c.transporterId === transporter.id && !c.isAlternative);
+                if (contact) {
+                  return {
+                    ...transporter,
+                    status: contact.status,
+                    ensemblesTaken: contact.status === 'yes' ? contact.volume : 0,
+                    ensemblesPrevisional: contact.status === 'pending' ? contact.volume : 0,
+                    comment: contact.comment || ''
+                  };
+                }
+                return transporter;
+              });
+            } catch (error) {
+              console.error('❌ Erreur lors du chargement des contacts pour les transporteurs correspondants:', error);
+            }
+          }
+          
+          // Si on a des contacts mis à jour en plus (pour compatibilité), les appliquer aussi
           if (searchCriteria.updatedContacts && searchCriteria.updatedContacts.length > 0) {
-            console.log('🔄 Application des contacts mis à jour aux transporteurs:', searchCriteria.updatedContacts);
+            console.log('🔄 Application des contacts mis à jour supplémentaires aux transporteurs:', searchCriteria.updatedContacts);
             
             matchingTransporters = matchingTransporters.map(transporter => {
               const updatedContact = searchCriteria.updatedContacts.find((contact: any) => 
@@ -231,7 +261,43 @@ export function SearchResults({ onBack, onBackToDashboard, onNext, onCreateRoute
             searchCriteria.arrivee
           );
           console.log(`🔄 ${alternatives.length} transporteurs alternatifs trouvés`);
-          setAlternativeTransporters(alternatives);
+          
+          // Charger les contacts depuis la base de données pour appliquer les statuts
+          let updatedAlternatives = alternatives;
+          console.log('🔍 SearchResults - Chargement contacts alternatifs pour searchId:', searchCriteria.searchId);
+          if (searchCriteria.searchId) {
+            try {
+              const contacts = await TransporterContactService.getContactsBySearch(searchCriteria.searchId);
+              console.log('📊 Contacts chargés pour les transporteurs alternatifs:', contacts);
+              
+              // Filtrer uniquement les contacts alternatifs
+              const alternativeContacts = contacts.filter(c => c.isAlternative);
+              console.log('🔍 Contacts alternatifs trouvés:', alternativeContacts.length);
+              
+              // Appliquer les contacts aux transporteurs alternatifs
+              updatedAlternatives = alternatives.map(alternative => {
+                const contact = alternativeContacts.find(c => c.transporterId === alternative.organisation);
+                if (contact) {
+                  console.log(`✅ Contact trouvé pour "${alternative.organisation}":`, contact.status);
+                  return {
+                    ...alternative,
+                    status: contact.status,
+                    ensemblesTaken: contact.status === 'yes' ? contact.volume : 0,
+                    ensemblesPrevisional: contact.status === 'pending' ? contact.volume : 0,
+                    comment: contact.comment || ''
+                  };
+                }
+                return alternative;
+              });
+              
+              const updatedCount = updatedAlternatives.filter(alt => alt.status).length;
+              console.log(`✅ ${updatedCount} transporteurs alternatifs mis à jour avec leurs statuts`);
+            } catch (error) {
+              console.error('❌ Erreur lors du chargement des contacts pour les transporteurs alternatifs:', error);
+            }
+          }
+          
+          setAlternativeTransporters(updatedAlternatives);
         } else {
           // Sinon, charger tous les transporteurs
           setTransporters(TransporterService.getAllTransporters());
@@ -248,26 +314,45 @@ export function SearchResults({ onBack, onBackToDashboard, onNext, onCreateRoute
   }, [searchCriteria]);
 
   const calculateRemaining = () => {
-    const totalQuantity = searchCriteria?.quantite || totalEnsembles;
+    const totalQuantity = searchCriteria?.quantite || totalTonnes;
     
-    // Calculer les ensembles confirmés (statut 'yes' ou 'occupe' = confirmé)
-    const confirmedTaken = transporters
+    // Calculer les ensembles confirmés des transporteurs correspondants
+    const confirmedTakenTransporters = transporters
       .filter(t => t.status === 'yes' || t.statut === 'occupe')
       .reduce((sum, t) => sum + (t.ensemblesTaken || (t.statut === 'occupe' ? t.capacite : 0)), 0);
     
-    // Calculer les ensembles en attente (statut 'pending' ou 'en_attente')
-    const preReservedTotal = transporters
+    // Calculer les ensembles confirmés des transporteurs alternatifs
+    const confirmedTakenAlternatives = alternativeTransporters
+      .filter(at => at.status === 'yes')
+      .reduce((sum, at) => sum + (at.ensemblesTaken || 0), 0);
+    
+    const confirmedTaken = confirmedTakenTransporters + confirmedTakenAlternatives;
+    
+    // Calculer les ensembles en attente des transporteurs correspondants
+    const preReservedTransporters = transporters
       .filter(t => t.status === 'pending' || t.statut === 'en_attente')
       .reduce((sum, t) => sum + (t.ensemblesPrevisional || (t.statut === 'en_attente' ? t.capacite : 0)), 0);
+    
+    // Calculer les ensembles en attente des transporteurs alternatifs
+    const preReservedAlternatives = alternativeTransporters
+      .filter(at => at.status === 'pending')
+      .reduce((sum, at) => sum + (at.ensemblesPrevisional || 0), 0);
+    
+    const preReservedTotal = preReservedTransporters + preReservedAlternatives;
     
     const remaining = totalQuantity - confirmedTaken - preReservedTotal;
     
     console.log('🧮 Calcul remaining:', {
       totalQuantity,
+      confirmedTakenTransporters,
+      confirmedTakenAlternatives,
       confirmedTaken,
+      preReservedTransporters,
+      preReservedAlternatives,
       preReservedTotal,
       remaining,
       transportersWithStatus: transporters.filter(t => (t.status && t.status !== '') || t.statut !== 'disponible').length,
+      alternativesWithStatus: alternativeTransporters.filter(at => at.status && at.status !== '').length,
       transporters: transporters.map(t => ({
         id: t.id,
         name: t.nom,
@@ -275,6 +360,13 @@ export function SearchResults({ onBack, onBackToDashboard, onNext, onCreateRoute
         statut: t.statut,
         ensemblesTaken: t.ensemblesTaken,
         capacite: t.capacite
+      })),
+      alternatives: alternativeTransporters.map(at => ({
+        id: at.organisation,
+        name: at.organisation,
+        status: at.status,
+        ensemblesTaken: at.ensemblesTaken,
+        ensemblesPrevisional: at.ensemblesPrevisional
       }))
     });
     
@@ -282,7 +374,7 @@ export function SearchResults({ onBack, onBackToDashboard, onNext, onCreateRoute
   };
 
   const remainingEnsembles = calculateRemaining();
-  const totalQuantity = searchCriteria?.quantite || totalEnsembles;
+  const totalQuantity = searchCriteria?.quantite || totalTonnes;
   const coverageRate = ((totalQuantity - remainingEnsembles) / totalQuantity) * 100;
 
   const handleContactCarrier = (carrier: Carrier | AlternativeCarrier | TransporterData) => {
@@ -298,6 +390,7 @@ export function SearchResults({ onBack, onBackToDashboard, onNext, onCreateRoute
         confidence: Math.round(transporterData.note * 10), // Convertir en pourcentage
         capacity: transporterData.capacite,
         lastMission: transporterData.derniereMission,
+        status: transporterData.status || '',
         isAlternative: false
       };
       setSelectedCarrier(convertedCarrier);
@@ -332,8 +425,40 @@ export function SearchResults({ onBack, onBackToDashboard, onNext, onCreateRoute
     // Sauvegarder le contact transporteur dans la base de données
     if (searchCriteria?.searchId) {
       try {
-        const transporter = transporters.find(t => t.id === carrierId);
+        // Chercher d'abord dans les transporteurs correspondants
+        let transporter = transporters.find(t => t.id === carrierId);
+        
+        // Si pas trouvé, chercher dans les transporteurs alternatifs
+        if (!transporter) {
+          const alternativeTransporter = alternativeTransporters.find(at => at.organisation === carrierId);
+          if (alternativeTransporter) {
+            // Créer un objet transporter temporaire pour la sauvegarde
+            transporter = {
+              id: alternativeTransporter.organisation,
+              nom: alternativeTransporter.organisation,
+              zoneDepart: alternativeTransporter.departCode,
+              zoneArrivee: alternativeTransporter.arriveeCode,
+              typeVehicule: 'Tous types',
+              capacite: alternativeTransporter.nombreMissions,
+              note: alternativeTransporter.confiance / 10,
+              derniereMission: alternativeTransporter.dernierMission,
+              statut: 'disponible' as const,
+              contact: {
+                nom: `Contact ${alternativeTransporter.organisation}`,
+                telephone: 'N/A',
+                email: 'N/A'
+              },
+              specialites: [],
+              tarif: 0,
+              distance: 0
+            };
+          }
+        }
+        
         if (transporter) {
+          // Déterminer si c'est un transporteur alternatif
+          const isAlternative = !transporters.find(t => t.id === carrierId);
+          
           await TransporterContactService.saveContact({
             searchId: searchCriteria.searchId,
             userId: searchCriteria?.userId || 'user-1',
@@ -345,8 +470,9 @@ export function SearchResults({ onBack, onBackToDashboard, onNext, onCreateRoute
             volume: data.response === 'yes' ? parseInt(data.ensemblesTaken) : 
                    data.response === 'pending' ? parseInt(data.ensemblesPrevisional) : 0,
             comment: data.comment,
+            isAlternative: isAlternative, // Marquer comme transporteur alternatif
           });
-          console.log('✅ Contact transporteur sauvegardé:', carrierId);
+          console.log('✅ Contact transporteur sauvegardé:', carrierId, isAlternative ? '(alternatif)' : '(correspondant)');
         }
       } catch (error) {
         console.error('❌ Erreur lors de la sauvegarde du contact:', error);
@@ -365,6 +491,20 @@ export function SearchResults({ onBack, onBackToDashboard, onNext, onCreateRoute
         };
       }
       return c;
+    }));
+    
+    // Mettre à jour aussi la liste des transporteurs alternatifs si c'est un transporteur alternatif
+    setAlternativeTransporters(prev => prev.map(at => {
+      if (at.organisation === carrierId) {
+        return {
+          ...at,
+          status: data.response,
+          ensemblesTaken: data.response === 'yes' ? parseInt(data.ensemblesTaken) : 0,
+          ensemblesPrevisional: data.response === 'pending' ? parseInt(data.ensemblesPrevisional) : 0,
+          comment: data.comment,
+        };
+      }
+      return at;
     }));
     
     setTransporters(prev => prev.map(t => {
@@ -398,21 +538,78 @@ export function SearchResults({ onBack, onBackToDashboard, onNext, onCreateRoute
     ));
   };
 
-  const handleCreateRoute = (carrierId: string) => {
-    const carrier = alternativeCarriers.find(c => c.id === carrierId);
-    if (carrier) {
-      const newCarrier: Carrier = {
-        id: `new-${Date.now()}`,
-        name: carrier.name,
-        route: carrier.route,
-        vehicleType: carrier.vehicleType,
-        score: carrier.score,
-        confidence: carrier.confidence,
-        capacity: carrier.capacity,
-        status: '',
-        lastMission: 'Nouvelle route',
-      };
-      setCarriers(prev => [...prev, newCarrier]);
+  const handleCreateRoute = async (carrierId: string) => {
+    try {
+      // Trouver le transporteur alternatif
+      const alternativeTransporter = alternativeTransporters.find(at => at.organisation === carrierId);
+      
+      if (!alternativeTransporter) {
+        toast.error('Transporteur non trouvé');
+        return;
+      }
+
+      // Chercher les informations de région et véhicule depuis les données JSON
+      let originRegion = 'Non spécifiée';
+      let destinationRegion = 'Non spécifiée';
+      let vehicleType = 'Tous types';
+      
+      try {
+        const response = await fetch('/src/data/liste-mission-transport.json');
+        const missionsData = await response.json();
+        
+        // Trouver une mission correspondante pour ce transporteur et cette route
+        const mission = missionsData.find((m: any) => 
+          m['Transporteur'] === alternativeTransporter.organisation &&
+          m['Département Chargement'] === alternativeTransporter.departCode &&
+          m['Département livraison'] === alternativeTransporter.arriveeCode
+        );
+        
+        if (mission) {
+          originRegion = mission['Région chargement'] || 'Non spécifiée';
+          destinationRegion = mission['Région livraison'] || 'Non spécifiée';
+          vehicleType = mission['Vehicule'] || 'Tous types';
+          console.log('📦 Données récupérées:', { originRegion, destinationRegion, vehicleType });
+        } else {
+          console.log('⚠️ Aucune mission trouvée pour récupérer les données');
+        }
+      } catch (error) {
+        console.error('❌ Erreur lors de la récupération des données:', error);
+      }
+
+      // Extraire les informations de la route
+      const originCountry = alternativeTransporter.paysDepart;
+      const originDepartment = alternativeTransporter.departCode;
+      const originCity = alternativeTransporter.depart;
+      const destinationCountry = alternativeTransporter.paysArrivee;
+      const destinationDepartment = alternativeTransporter.arriveeCode;
+      const destinationCity = alternativeTransporter.arrivee;
+
+      // Créer la route dans la base de données
+      const savedRoute = await TransporterRouteService.createRoute({
+        userId: searchCriteria?.userId || 'user-1',
+        carrierId: alternativeTransporter.organisation,
+        carrierName: alternativeTransporter.organisation,
+        originCountry: originCountry,
+        originRegion: originRegion,
+        originDepartment: originDepartment,
+        originCity: originCity,
+        destinationCountry: destinationCountry,
+        destinationRegion: destinationRegion,
+        destinationDepartment: destinationDepartment,
+        destinationCity: destinationCity,
+        vehicleType: vehicleType,
+        isActive: true,
+      });
+
+      console.log('✅ Route créée dans la base de données:', savedRoute);
+
+      toast.success('Route officielle créée', {
+        description: `${alternativeTransporter.organisation} – ${originCity} → ${destinationCity}`,
+        icon: '✅',
+      });
+    } catch (error) {
+      console.error('❌ Erreur lors de la création de la route:', error);
+      toast.error('Erreur lors de la création de la route');
     }
   };
 
@@ -444,13 +641,20 @@ export function SearchResults({ onBack, onBackToDashboard, onNext, onCreateRoute
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-3">
               <a 
-                href="/" 
+                href="#"
+                onClick={(e) => {
+                  e.preventDefault();
+                  if (onBackToDashboard) {
+                    onBackToDashboard();
+                  }
+                }}
                 className="transition-all duration-300 hover:scale-105"
                 style={{ 
                   fontSize: '1.5rem',
                   fontWeight: '800',
                   color: 'white',
-                  textDecoration: 'none'
+                  textDecoration: 'none',
+                  cursor: 'pointer'
                 }}
               >
                 TransportHub
@@ -552,7 +756,7 @@ export function SearchResults({ onBack, onBackToDashboard, onNext, onCreateRoute
                   {/* Total */}
                   <div className="pl-8 border-l border-gray-200">
                     <p className="text-sm text-gray-600">Quantité totale</p>
-                    <p>{searchCriteria?.quantite || totalEnsembles} tonne{searchCriteria?.quantite || totalEnsembles > 1 ? 's' : ''}</p>
+                    <p>{searchCriteria?.quantite || totalTonnes} tonne{searchCriteria?.quantite || totalTonnes > 1 ? 's' : ''}</p>
                   </div>
 
                   {/* Remaining */}
@@ -767,18 +971,58 @@ export function SearchResults({ onBack, onBackToDashboard, onNext, onCreateRoute
                             {transporter.nombreMissions} mission{transporter.nombreMissions > 1 ? 's' : ''}
                           </p>
                         </div>
-                        <Badge className="bg-blue-100 text-blue-700 text-xs">
-                          Confiance: {Math.round(transporter.confiance)}%
-                        </Badge>
+                        <div className="flex flex-col gap-1">
+                          <Badge className="bg-blue-100 text-blue-700 text-xs">
+                            Confiance: {Math.round(transporter.confiance)}%
+                          </Badge>
+                           {transporter.status && transporter.status !== '' && (() => {
+                             let label = '';
+                             let icon = '';
+                             let color = '';
+                             
+                             if (transporter.status === 'yes') {
+                               label = transporter.ensemblesTaken ? `Accepté – ${transporter.ensemblesTaken}` : 'Accepté';
+                               icon = '✅';
+                               color = 'bg-green-100 text-green-700';
+                             } else if (transporter.status === 'pending') {
+                               label = transporter.ensemblesPrevisional ? `Pré-réservé – ${transporter.ensemblesPrevisional}` : 'Pré-réservé';
+                               icon = '⏳';
+                               color = 'bg-amber-100 text-amber-700';
+                             } else if (transporter.status === 'no') {
+                               label = 'Refusé';
+                               icon = '❌';
+                               color = 'bg-red-100 text-red-700';
+                             } else {
+                               label = 'Inconnu';
+                               icon = '❓';
+                               color = 'bg-gray-100 text-gray-700';
+                             }
+                             
+                             return (
+                               <Badge className={`${color} text-xs`}>
+                                 <span>{icon}</span>
+                                 <span className="ml-1">{label}</span>
+                               </Badge>
+                             );
+                           })()}
+                        </div>
                       </div>
                       <Button
                         size="sm"
                         onClick={() => handleContactAlternativeTransporter(transporter)}
-                        className="rounded-lg"
-                        style={{ backgroundColor: '#F6A20E', color: 'white' }}
+                        disabled={transporter.status && transporter.status !== ''}
+                        className={`rounded-lg transition-all ${
+                          transporter.status && transporter.status !== '' 
+                            ? 'opacity-50 cursor-not-allowed' 
+                            : 'hover:shadow-md'
+                        }`}
+                        style={{ 
+                          backgroundColor: transporter.status && transporter.status !== '' ? '#ccc' : '#F6A20E', 
+                          color: 'white' 
+                        }}
                       >
                         <Phone className="w-3 h-3 mr-1" />
-                        Contacter
+                        {transporter.status && transporter.status !== '' ? 'Contacté' : 'Contacter'}
                       </Button>
                     </div>
                   </motion.div>

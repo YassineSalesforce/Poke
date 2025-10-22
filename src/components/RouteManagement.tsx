@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Card, CardContent } from './ui/card';
 import { Button } from './ui/button';
@@ -22,6 +22,7 @@ import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbP
 import { RouteDrawer } from './RouteDrawer';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 import { toast } from 'sonner';
+import { TransporterRouteService } from '../services/TransporterRouteService';
 
 interface RouteManagementProps {
   onBackToDashboard: () => void;
@@ -56,74 +57,49 @@ interface SuggestedRoute {
 }
 
 export function RouteManagement({ onBackToDashboard }: RouteManagementProps) {
-  const [routes, setRoutes] = useState<RouteData[]>([
-    {
-      id: '1',
-      carrierId: '1',
-      carrierName: 'TRANSARLE',
-      originCountry: 'FR',
-      originRegion: 'Nouvelle-Aquitaine',
-      originDepartment: '33',
-      originCity: 'Bordeaux',
-      destinationCountry: 'ES',
-      destinationRegion: 'Communauté de Madrid',
-      destinationDepartment: 'ES13',
-      destinationCity: 'Madrid',
-      vehicleType: 'Benne',
-      isActive: true,
-      createdAt: '12/03/2024',
-      lastUpdated: '18/10/2025 14h30',
-    },
-    {
-      id: '2',
-      carrierId: '2',
-      carrierName: 'CHEVALIER TRANSPORTS',
-      originCountry: 'FR',
-      originRegion: 'Pays de la Loire',
-      originDepartment: '49',
-      originCity: 'Angers',
-      destinationCountry: 'FR',
-      destinationRegion: 'Provence-Alpes-Côte d\'Azur',
-      destinationDepartment: '84',
-      destinationCity: 'Avignon',
-      vehicleType: 'Tautliner',
-      isActive: true,
-      createdAt: '09/02/2025',
-    },
-    {
-      id: '3',
-      carrierId: '3',
-      carrierName: '2BMOVED',
-      originCountry: 'FR',
-      originRegion: 'Auvergne-Rhône-Alpes',
-      originDepartment: '38',
-      originCity: 'Grenoble',
-      destinationCountry: 'FR',
-      destinationRegion: 'Occitanie',
-      destinationDepartment: '30',
-      destinationCity: 'Nîmes',
-      vehicleType: 'Plateau',
-      isActive: false,
-      createdAt: '05/05/2023',
-      lastUpdated: '12/09/2024 09h15',
-    },
-    {
-      id: '4',
-      carrierId: '4',
-      carrierName: 'LOGISTIQUE EXPRESS',
-      originCountry: 'FR',
-      originRegion: 'Nouvelle-Aquitaine',
-      originDepartment: '33',
-      originCity: 'Bordeaux',
-      destinationCountry: 'ES',
-      destinationRegion: 'Catalogne',
-      destinationDepartment: 'ES08',
-      destinationCity: 'Barcelone',
-      vehicleType: 'Frigo',
-      isActive: true,
-      createdAt: '15/01/2025',
-    },
-  ]);
+  // Chaque utilisateur commence avec aucune route - il doit les créer lui-même
+  const [routes, setRoutes] = useState<RouteData[]>([]);
+  const [loading, setLoading] = useState(true);
+  const userId = 'user-1'; // TODO: Récupérer l'ID utilisateur depuis le contexte d'authentification
+
+  // Charger les routes de l'utilisateur depuis la base de données
+  useEffect(() => {
+    const loadRoutes = async () => {
+      setLoading(true);
+      try {
+        const userRoutes = await TransporterRouteService.getRoutesByUser(userId);
+        console.log('Routes chargées depuis la base:', userRoutes);
+        
+        // Convertir les routes de la base au format RouteData
+        const formattedRoutes = userRoutes.map(route => ({
+          id: route._id || '',
+          carrierId: route.carrierId,
+          carrierName: route.carrierName,
+          originCountry: route.originCountry,
+          originRegion: route.originRegion,
+          originDepartment: route.originDepartment,
+          originCity: route.originCity,
+          destinationCountry: route.destinationCountry,
+          destinationRegion: route.destinationRegion,
+          destinationDepartment: route.destinationDepartment,
+          destinationCity: route.destinationCity,
+          vehicleType: route.vehicleType,
+          isActive: route.isActive,
+          createdAt: new Date(route.createdAt).toLocaleDateString('fr-FR'),
+          lastUpdated: route.updatedAt ? new Date(route.updatedAt).toLocaleDateString('fr-FR') + ' ' + new Date(route.updatedAt).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }) : undefined,
+        }));
+        
+        setRoutes(formattedRoutes);
+      } catch (error) {
+        console.error('Erreur lors du chargement des routes:', error);
+        toast.error('Erreur lors du chargement des routes');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadRoutes();
+  }, []);
 
   const [suggestedRoutes] = useState<SuggestedRoute[]>([
     {
@@ -171,51 +147,128 @@ export function RouteManagement({ onBackToDashboard }: RouteManagementProps) {
     setIsDrawerOpen(true);
   };
 
-  const handleSaveRoute = (routeData: RouteData) => {
-    if (routeData.id) {
-      // Update existing route
-      setRoutes(prev => prev.map(r => 
-        r.id === routeData.id 
-          ? { ...routeData, lastUpdated: new Date().toLocaleDateString('fr-FR') + ' ' + new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }) }
-          : r
-      ));
-      toast.success('Route modifiée avec succès', {
-        description: `${routeData.carrierName} – ${routeData.originCity} → ${routeData.destinationCity}`,
-      });
-    } else {
-      // Add new route
-      const newRoute = {
-        ...routeData,
-        id: Date.now().toString(),
-        createdAt: new Date().toLocaleDateString('fr-FR'),
-      };
-      setRoutes(prev => [...prev, newRoute]);
-      toast.success('Route créée avec succès', {
-        description: `${routeData.carrierName} – ${routeData.originCity} → ${routeData.destinationCity}`,
-      });
+  const handleSaveRoute = async (routeData: RouteData) => {
+    try {
+      if (routeData.id) {
+        // Update existing route in database
+        await TransporterRouteService.updateRoute(routeData.id, {
+          carrierId: routeData.carrierId,
+          carrierName: routeData.carrierName,
+          originCountry: routeData.originCountry,
+          originRegion: routeData.originRegion,
+          originDepartment: routeData.originDepartment,
+          originCity: routeData.originCity,
+          destinationCountry: routeData.destinationCountry,
+          destinationRegion: routeData.destinationRegion,
+          destinationDepartment: routeData.destinationDepartment,
+          destinationCity: routeData.destinationCity,
+          vehicleType: routeData.vehicleType,
+          isActive: routeData.isActive,
+        });
+        
+        // Update local state
+        setRoutes(prev => prev.map(r => 
+          r.id === routeData.id 
+            ? { ...routeData, lastUpdated: new Date().toLocaleDateString('fr-FR') + ' ' + new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }) }
+            : r
+        ));
+        
+        toast.success('Route modifiée avec succès', {
+          description: `${routeData.carrierName} – ${routeData.originCity} → ${routeData.destinationCity}`,
+        });
+      } else {
+        // Add new route to database
+        const savedRoute = await TransporterRouteService.createRoute({
+          userId: userId,
+          carrierId: routeData.carrierId,
+          carrierName: routeData.carrierName,
+          originCountry: routeData.originCountry,
+          originRegion: routeData.originRegion,
+          originDepartment: routeData.originDepartment,
+          originCity: routeData.originCity,
+          destinationCountry: routeData.destinationCountry,
+          destinationRegion: routeData.destinationRegion,
+          destinationDepartment: routeData.destinationDepartment,
+          destinationCity: routeData.destinationCity,
+          vehicleType: routeData.vehicleType,
+          isActive: routeData.isActive,
+        });
+        
+        // Add to local state
+        const newRoute = {
+          id: savedRoute._id || '',
+          carrierId: savedRoute.carrierId,
+          carrierName: savedRoute.carrierName,
+          originCountry: savedRoute.originCountry,
+          originRegion: savedRoute.originRegion,
+          originDepartment: savedRoute.originDepartment,
+          originCity: savedRoute.originCity,
+          destinationCountry: savedRoute.destinationCountry,
+          destinationRegion: savedRoute.destinationRegion,
+          destinationDepartment: savedRoute.destinationDepartment,
+          destinationCity: savedRoute.destinationCity,
+          vehicleType: savedRoute.vehicleType,
+          isActive: savedRoute.isActive,
+          createdAt: new Date(savedRoute.createdAt).toLocaleDateString('fr-FR'),
+        };
+        
+        setRoutes(prev => [...prev, newRoute]);
+        
+        toast.success('Route créée avec succès', {
+          description: `${routeData.carrierName} – ${routeData.originCity} → ${routeData.destinationCity}`,
+        });
+      }
+    } catch (error) {
+      console.error('Erreur lors de la sauvegarde de la route:', error);
+      toast.error('Erreur lors de la sauvegarde de la route');
     }
   };
 
-  const handleToggleStatus = (routeId: string) => {
-    setRoutes(prev => prev.map(route => {
-      if (route.id === routeId) {
-        const newStatus = !route.isActive;
-        toast.success(newStatus ? 'Route réactivée' : 'Route désactivée', {
-          description: `${route.carrierName} – ${route.originCity} → ${route.destinationCity}`,
-        });
-        return { ...route, isActive: newStatus };
-      }
-      return route;
-    }));
+  const handleToggleStatus = async (routeId: string) => {
+    try {
+      const route = routes.find(r => r.id === routeId);
+      if (!route) return;
+      
+      const newStatus = !route.isActive;
+      
+      // Update in database
+      await TransporterRouteService.updateRoute(routeId, {
+        isActive: newStatus,
+      });
+      
+      // Update local state
+      setRoutes(prev => prev.map(r => {
+        if (r.id === routeId) {
+          toast.success(newStatus ? 'Route réactivée' : 'Route désactivée', {
+            description: `${r.carrierName} – ${r.originCity} → ${r.destinationCity}`,
+          });
+          return { ...r, isActive: newStatus };
+        }
+        return r;
+      }));
+    } catch (error) {
+      console.error('Erreur lors du changement de statut:', error);
+      toast.error('Erreur lors du changement de statut');
+    }
   };
 
-  const handleDeleteRoute = (routeId: string) => {
-    const route = routes.find(r => r.id === routeId);
-    if (route) {
+  const handleDeleteRoute = async (routeId: string) => {
+    try {
+      const route = routes.find(r => r.id === routeId);
+      if (!route) return;
+      
+      // Delete from database
+      await TransporterRouteService.deleteRoute(routeId);
+      
+      // Update local state
       setRoutes(prev => prev.filter(r => r.id !== routeId));
+      
       toast.success('Route supprimée', {
         description: `${route.carrierName} – ${route.originCity} → ${route.destinationCity}`,
       });
+    } catch (error) {
+      console.error('Erreur lors de la suppression:', error);
+      toast.error('Erreur lors de la suppression');
     }
   };
 
@@ -275,13 +328,20 @@ export function RouteManagement({ onBackToDashboard }: RouteManagementProps) {
             {/* Logo officiel */}
             <div className="flex items-center gap-3">
               <a 
-                href="/" 
+                href="#"
+                onClick={(e) => {
+                  e.preventDefault();
+                  if (onBackToDashboard) {
+                    onBackToDashboard();
+                  }
+                }}
                 className="transition-all duration-300 hover:scale-105"
                 style={{ 
                   fontSize: '1.5rem',
                   fontWeight: '800',
                   color: 'white',
-                  textDecoration: 'none'
+                  textDecoration: 'none',
+                  cursor: 'pointer'
                 }}
               >
                 TransportHub
@@ -514,13 +574,6 @@ export function RouteManagement({ onBackToDashboard }: RouteManagementProps) {
                 {filteredRoutes.length === 0 && (
                   <div className="text-center py-12">
                     <p className="text-gray-500">Aucune route trouvée</p>
-                    <Button
-                      onClick={handleResetFilters}
-                      variant="outline"
-                      className="mt-4 rounded-lg"
-                    >
-                      Réinitialiser les filtres
-                    </Button>
                   </div>
                 )}
               </div>

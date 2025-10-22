@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion } from 'motion/react';
 import {
   Drawer,
@@ -88,7 +88,7 @@ export function ContactCarrierDrawer({
 
     // Validation
     if (response === 'yes' && !ensemblesTaken) {
-      toast.error('Veuillez indiquer le nombre d\'ensembles pris');
+      toast.error('Veuillez indiquer le nombre de tonnes');
       return;
     }
 
@@ -188,7 +188,7 @@ export function ContactCarrierDrawer({
                   <p className="text-sm text-gray-600 mb-1">Capacité possible</p>
                   <div className="flex items-center gap-2">
                     <Package className="w-4 h-4 text-gray-500" />
-                    <p className="text-sm">{carrier.capacity} ensemble{carrier.capacity > 1 ? 's' : ''}</p>
+                    <p className="text-sm">{carrier.capacity} tonne{carrier.capacity > 1 ? 's' : ''}</p>
                   </div>
                 </div>
 
@@ -262,7 +262,7 @@ export function ContactCarrierDrawer({
                   className="space-y-2 mb-4"
                 >
                   <Label htmlFor="ensembles-taken">
-                    Nombre d'ensembles pris <span className="text-red-500">*</span>
+                    Nombre de tonnes <span className="text-red-500">*</span>
                   </Label>
                   <Input
                     id="ensembles-taken"
@@ -275,7 +275,7 @@ export function ContactCarrierDrawer({
                     max={carrier.capacity}
                   />
                   <p className="text-sm text-gray-500">
-                    Capacité maximale: {carrier.capacity} ensemble{carrier.capacity > 1 ? 's' : ''}
+                    Capacité maximale: {carrier.capacity} tonne{carrier.capacity > 1 ? 's' : ''}
                   </p>
                 </motion.div>
               )}
@@ -300,7 +300,7 @@ export function ContactCarrierDrawer({
                     max={remainingEnsembles}
                   />
                   <p className="text-sm text-gray-500">
-                    Reste disponible: {remainingEnsembles} ensemble{remainingEnsembles > 1 ? 's' : ''}
+                    Reste disponible: {remainingEnsembles} tonne{remainingEnsembles > 1 ? 's' : ''}
                   </p>
                 </motion.div>
               )}
@@ -361,7 +361,7 @@ export function ContactCarrierDrawer({
                 <div className="flex items-center gap-4">
                   <div>
                     <p className="text-gray-600">Reste à prendre</p>
-                    <p style={{ color: '#F6A20E' }}>{remainingEnsembles} ensemble{remainingEnsembles > 1 ? 's' : ''}</p>
+                    <p style={{ color: '#F6A20E' }}>{remainingEnsembles} tonne{remainingEnsembles > 1 ? 's' : ''}</p>
                   </div>
                   <div className="h-8 w-px bg-gray-200" />
                   <div>

@@ -18,7 +18,8 @@ import {
   CheckCircle,
   Clock,
   Heart,
-  Star
+  Star,
+  TrendingUp
 } from 'lucide-react';
 import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbPage, BreadcrumbSeparator } from './ui/breadcrumb';
 import { Alert, AlertDescription } from './ui/alert';
@@ -47,9 +48,10 @@ interface CarrierReturn {
 }
 
 export function CarrierReturnsEntry({ onBack, onBackToDashboard, onNext, searchCriteria, searchId }: CarrierReturnsEntryProps) {
-  const totalEnsembles = searchCriteria?.quantite || 5;
+  const totalTonnes = searchCriteria?.quantite || 5;
   
   const [carriers, setCarriers] = useState([]);
+  const [alternativeCarriers, setAlternativeCarriers] = useState([]); // Nouveau state pour les transporteurs alternatifs
   const [loading, setLoading] = useState(true);
   
   // États pour le modal de détails de mission par transporteur
@@ -115,20 +117,33 @@ export function CarrierReturnsEntry({ onBack, onBackToDashboard, onNext, searchC
         const contacts = await TransporterContactService.getContactsBySearch(searchId);
         console.log('📊 CarrierReturnsEntry - Contacts reçus:', contacts);
         
-        // Convertir les contacts en format CarrierReturn
-        const convertedCarriers: CarrierReturn[] = contacts.map(contact => ({
-          id: contact.transporterId,
-          name: contact.transporterName,
-          route: contact.route,
-          response: contact.status,
-          ensemblesTaken: contact.status === 'yes' ? contact.volume.toString() : '',
-          ensemblesPrevisional: contact.status === 'pending' ? contact.volume.toString() : '',
-          comment: contact.comment || '',
-          validated: contact.status === 'yes'
-        }));
+        // Séparer les transporteurs correspondants et alternatifs
+        const regularCarriers: CarrierReturn[] = [];
+        const alternativeCarriersList: CarrierReturn[] = [];
+        
+        contacts.forEach(contact => {
+          const carrierReturn: CarrierReturn = {
+            id: contact.transporterId,
+            name: contact.transporterName,
+            route: contact.route,
+            response: contact.status,
+            ensemblesTaken: contact.status === 'yes' ? contact.volume.toString() : '',
+            ensemblesPrevisional: contact.status === 'pending' ? contact.volume.toString() : '',
+            comment: contact.comment || '',
+            validated: contact.status === 'yes'
+          };
+          
+          if (contact.isAlternative) {
+            alternativeCarriersList.push(carrierReturn);
+          } else {
+            regularCarriers.push(carrierReturn);
+          }
+        });
 
-        console.log('🔄 CarrierReturnsEntry - Carriers convertis:', convertedCarriers);
-        setCarriers(convertedCarriers);
+        console.log('🔄 CarrierReturnsEntry - Transporteurs correspondants:', regularCarriers);
+        console.log('🔄 CarrierReturnsEntry - Transporteurs alternatifs:', alternativeCarriersList);
+        setCarriers(regularCarriers);
+        setAlternativeCarriers(alternativeCarriersList);
 
         // Charger les détails de mission existants
         try {
@@ -170,48 +185,121 @@ export function CarrierReturnsEntry({ onBack, onBackToDashboard, onNext, searchC
   }, [searchId]);
 
   const calculateRemaining = () => {
-    const confirmed = carriers
+    // Calculer les ensembles confirmés des transporteurs correspondants
+    const confirmedRegular = carriers
       .filter(c => c.response === 'yes')
       .reduce((sum, c) => sum + parseInt(c.ensemblesTaken || '0'), 0);
     
-    const previsional = carriers
+    // Calculer les ensembles confirmés des transporteurs alternatifs
+    const confirmedAlternative = alternativeCarriers
+      .filter(c => c.response === 'yes')
+      .reduce((sum, c) => sum + parseInt(c.ensemblesTaken || '0'), 0);
+    
+    const confirmed = confirmedRegular + confirmedAlternative;
+    
+    // Calculer les ensembles en attente des transporteurs correspondants
+    const previsionalRegular = carriers
       .filter(c => c.response === 'pending')
       .reduce((sum, c) => sum + parseInt(c.ensemblesPrevisional || '0'), 0);
     
-    return totalEnsembles - confirmed - previsional;
+    // Calculer les ensembles en attente des transporteurs alternatifs
+    const previsionalAlternative = alternativeCarriers
+      .filter(c => c.response === 'pending')
+      .reduce((sum, c) => sum + parseInt(c.ensemblesPrevisional || '0'), 0);
+    
+    const previsional = previsionalRegular + previsionalAlternative;
+    
+    return totalTonnes - confirmed - previsional;
   };
 
   const remainingEnsembles = calculateRemaining();
   
   const getTotalConfirmed = () => {
-    return carriers
+    const regularConfirmed = carriers
       .filter(c => c.response === 'yes')
       .reduce((sum, c) => sum + parseInt(c.ensemblesTaken || '0'), 0);
+    
+    const alternativeConfirmed = alternativeCarriers
+      .filter(c => c.response === 'yes')
+      .reduce((sum, c) => sum + parseInt(c.ensemblesTaken || '0'), 0);
+    
+    return regularConfirmed + alternativeConfirmed;
   };
 
   const getTotalPrevisional = () => {
-    return carriers
+    const regularPrevisional = carriers
       .filter(c => c.response === 'pending')
       .reduce((sum, c) => sum + parseInt(c.ensemblesPrevisional || '0'), 0);
+    
+    const alternativePrevisional = alternativeCarriers
+      .filter(c => c.response === 'pending')
+      .reduce((sum, c) => sum + parseInt(c.ensemblesPrevisional || '0'), 0);
+    
+    return regularPrevisional + alternativePrevisional;
   };
 
   const totalConfirmed = getTotalConfirmed();
   const totalPrevisional = getTotalPrevisional();
   const totalAllocated = totalConfirmed + totalPrevisional;
-  const isOverbooked = totalAllocated > totalEnsembles;
-  const isComplete = totalAllocated === totalEnsembles;
+  const isOverbooked = totalAllocated > totalTonnes;
+  const isComplete = totalAllocated === totalTonnes;
   
   // Vérifier si tous les transporteurs sont confirmés (pas de pré-réservés)
   const isFullyConfirmed = isComplete && totalPrevisional === 0;
   
   // Vérifier si tous les transporteurs confirmés ont rempli leur formulaire
   const areAllFormsCompleted = () => {
+    // Vérifier les transporteurs correspondants
     const confirmedCarriers = carriers.filter(carrier => carrier.response === 'yes' && carrier.ensemblesTaken);
-    return confirmedCarriers.every(carrier => savedCarriers.has(carrier.id));
+    const allRegularFormsCompleted = confirmedCarriers.every(carrier => savedCarriers.has(carrier.id));
+    
+    // Vérifier les transporteurs alternatifs
+    const confirmedAlternativeCarriers = alternativeCarriers.filter(carrier => carrier.response === 'yes' && carrier.ensemblesTaken);
+    const allAlternativeFormsCompleted = confirmedAlternativeCarriers.every(carrier => savedCarriers.has(carrier.id));
+    
+    return allRegularFormsCompleted && allAlternativeFormsCompleted;
   };
 
   const updateCarrier = async (id: string, field: keyof CarrierReturn, value: any) => {
+    // Mettre à jour les transporteurs correspondants
     setCarriers(prev => prev.map(carrier => {
+      if (carrier.id === id) {
+        const updated = { ...carrier, [field]: value };
+        
+        // If response changes to "no", clear previsional
+        if (field === 'response' && value === 'no') {
+          updated.ensemblesPrevisional = '';
+          updated.ensemblesTaken = '';
+          updated.validated = false;
+        }
+        
+        // If response changes to "yes", clear previsional
+        if (field === 'response' && value === 'yes') {
+          updated.ensemblesPrevisional = '';
+        }
+        
+        // If response changes from "pending" to "no", free up previsional
+        if (field === 'response' && value === 'no' && carrier.response === 'pending') {
+          updated.ensemblesPrevisional = '';
+        }
+        
+        // Auto-validate if response is yes and ensembles are set
+        if (field === 'response' && value === 'yes' && updated.ensemblesTaken) {
+          updated.validated = true;
+        } else if (field === 'ensemblesTaken' && updated.response === 'yes' && value) {
+          updated.validated = true;
+        }
+        
+        // Sauvegarder automatiquement en base de données
+        saveCarrierToDatabase(updated);
+        
+        return updated;
+      }
+      return carrier;
+    }));
+    
+    // Mettre à jour les transporteurs alternatifs
+    setAlternativeCarriers(prev => prev.map(carrier => {
       if (carrier.id === id) {
         const updated = { ...carrier, [field]: value };
         
@@ -315,7 +403,7 @@ export function CarrierReturnsEntry({ onBack, onBackToDashboard, onNext, searchC
     }
   };
 
-  const coverageRate = (totalAllocated / totalEnsembles) * 100;
+  const coverageRate = (totalAllocated / totalTonnes) * 100;
 
   const getStatusConfig = (carrier: CarrierReturn) => {
     if (carrier.response === 'yes' && carrier.validated) {
@@ -411,13 +499,20 @@ export function CarrierReturnsEntry({ onBack, onBackToDashboard, onNext, searchC
             {/* Logo officiel */}
             <div className="flex items-center gap-3">
               <a 
-                href="/" 
+                href="#"
+                onClick={(e) => {
+                  e.preventDefault();
+                  if (onBackToDashboard) {
+                    onBackToDashboard();
+                  }
+                }}
                 className="transition-all duration-300 hover:scale-105"
                 style={{ 
                   fontSize: '1.5rem',
                   fontWeight: '800',
                   color: 'white',
-                  textDecoration: 'none'
+                  textDecoration: 'none',
+                  cursor: 'pointer'
                 }}
               >
                 TransportHub
@@ -434,7 +529,7 @@ export function CarrierReturnsEntry({ onBack, onBackToDashboard, onNext, searchC
                 Retour aux résultats
               </Button>
               <Button
-                onClick={() => onNext && onNext(carriers)}
+                onClick={() => onNext && onNext([...carriers, ...alternativeCarriers])}
                 disabled={isOverbooked || !isFullyConfirmed || !areAllFormsCompleted()}
                 className="rounded-lg h-11 px-6 transition-all hover:shadow-lg disabled:opacity-50"
                 style={{ backgroundColor: (isOverbooked || !isFullyConfirmed || !areAllFormsCompleted()) ? '#ccc' : '#F6A20E', color: 'white' }}
@@ -503,7 +598,7 @@ export function CarrierReturnsEntry({ onBack, onBackToDashboard, onNext, searchC
                   {/* Total */}
                   <div className="pl-8 border-l border-gray-200">
                     <p className="text-sm text-gray-600">Quantité totale</p>
-                    <p>{totalEnsembles} ensembles</p>
+                    <p>{totalTonnes} tonnes</p>
                   </div>
 
                   {/* Allocation Summary */}
@@ -530,7 +625,7 @@ export function CarrierReturnsEntry({ onBack, onBackToDashboard, onNext, searchC
                       className="flex items-center gap-2"
                     >
                       <span style={{ color: remainingEnsembles > 0 ? '#F6A20E' : '#4CAF50' }}>
-                        {Math.max(0, remainingEnsembles)} ensemble{remainingEnsembles > 1 ? 's' : ''}
+                        {Math.max(0, remainingEnsembles)} tonne{remainingEnsembles > 1 ? 's' : ''}
                       </span>
                     </motion.div>
                   </div>
@@ -597,7 +692,7 @@ export function CarrierReturnsEntry({ onBack, onBackToDashboard, onNext, searchC
                   <AlertTriangle className="h-4 w-4 text-red-600" />
                   <AlertDescription>
                     <p className="text-red-900">
-                      ⚠️ Surbooking détecté : vous avez attribué {totalAllocated} ensemble(s) pour une demande de {totalEnsembles}.
+                      ⚠️ Surbooking détecté : vous avez attribué {totalAllocated} tonne(s) pour une demande de {totalTonnes}.
                     </p>
                     <p className="text-sm text-red-700 mt-1">
                       Vérifiez les quantités avant de générer les ordres de mission.
@@ -650,7 +745,7 @@ export function CarrierReturnsEntry({ onBack, onBackToDashboard, onNext, searchC
                   <div className="text-sm text-gray-600">Transporteur</div>
                   <div className="text-sm text-gray-600">Route</div>
                   <div className="text-sm text-gray-600">Réponse</div>
-                  <div className="text-sm text-gray-600">Nb ensembles pris</div>
+                  <div className="text-sm text-gray-600">Nb tonnes</div>
                   <div className="text-sm text-gray-600">Nb prévisionnel</div>
                   <div className="text-sm text-gray-600">Commentaire</div>
                   <div className="text-sm text-gray-600">Statut</div>
@@ -799,6 +894,161 @@ export function CarrierReturnsEntry({ onBack, onBackToDashboard, onNext, searchC
             </CardContent>
           </Card>
 
+          {/* Alternative Carriers Table */}
+          {alternativeCarriers.length > 0 && (
+            <Card className="shadow-md border-blue-200 bg-blue-50/30">
+              <CardContent className="p-6">
+                <div className="flex items-center gap-2 mb-4">
+                  <TrendingUp className="w-5 h-5" style={{ color: '#2B3A55' }} />
+                  <h2 style={{ color: '#2B3A55' }}>Transporteurs alternatifs (routes proches)</h2>
+                </div>
+                <p className="text-sm text-gray-600 mb-4">
+                  Routes similaires par départements – Réponses enregistrées
+                </p>
+                
+                <div className="space-y-2">
+                  {/* Table Header */}
+                  <div className="grid grid-cols-[2fr_1.5fr_1.2fr_1fr_1fr_2fr_1fr] gap-4 px-4 py-3 bg-blue-50 rounded-lg border border-blue-200">
+                    <div className="text-sm text-gray-600">Transporteur</div>
+                    <div className="text-sm text-gray-600">Route</div>
+                    <div className="text-sm text-gray-600">Réponse</div>
+                    <div className="text-sm text-gray-600">Nb tonnes</div>
+                    <div className="text-sm text-gray-600">Nb prévisionnel</div>
+                    <div className="text-sm text-gray-600">Commentaire</div>
+                    <div className="text-sm text-gray-600">Statut</div>
+                  </div>
+
+                  {/* Table Rows */}
+                  {alternativeCarriers.map((carrier, index) => {
+                    const statusConfig = getStatusConfig(carrier);
+                    
+                    return (
+                      <motion.div
+                        key={carrier.id}
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: index * 0.05 }}
+                        className={`grid grid-cols-[2fr_1.5fr_1.2fr_1fr_1fr_2fr_1fr] gap-4 px-4 py-4 rounded-lg border transition-all ${getRowBackground(carrier)} border-blue-200`}
+                      >
+                        {/* Carrier Name */}
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm">{carrier.name}</span>
+                          <button
+                            onClick={() => handleToggleFavorite(carrier)}
+                            disabled={favoritesLoading}
+                            className={`p-1 rounded-full transition-all hover:scale-110 ${
+                              favorites.has(carrier.id) 
+                                ? 'text-yellow-400 hover:text-yellow-300' 
+                                : 'text-gray-400 hover:text-yellow-400'
+                            } ${favoritesLoading ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
+                            title={favorites.has(carrier.id) ? 'Retirer des favoris' : 'Ajouter aux favoris'}
+                          >
+                            <Star 
+                              size={16} 
+                              fill={favorites.has(carrier.id) ? '#fbbf24' : 'none'}
+                              stroke={favorites.has(carrier.id) ? '#fbbf24' : '#9ca3af'}
+                              className={favorites.has(carrier.id) ? 'text-yellow-400' : 'text-gray-400'}
+                            />
+                          </button>
+                        </div>
+
+                        {/* Route */}
+                        <div className="flex items-center">
+                          <span className="text-sm text-gray-600">{carrier.route}</span>
+                        </div>
+
+                        {/* Response */}
+                        <div className="flex items-center">
+                          <Select 
+                            value={carrier.response} 
+                            onValueChange={(value) => updateCarrier(carrier.id, 'response', value)}
+                          >
+                            <SelectTrigger className="h-9 rounded-lg text-xs">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="yes">✅ Oui</SelectItem>
+                              <SelectItem value="pending">⏳ En attente</SelectItem>
+                              <SelectItem value="no">❌ Non</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+
+                        {/* Ensembles Taken */}
+                        <div className="flex items-center">
+                          <Input
+                            value={carrier.ensemblesTaken}
+                            onChange={(e) => updateCarrier(carrier.id, 'ensemblesTaken', e.target.value)}
+                            className="h-8 text-xs"
+                            placeholder="0"
+                            disabled={carrier.response !== 'yes'}
+                          />
+                        </div>
+
+                        {/* Ensembles Previsional */}
+                        <div className="flex items-center">
+                          <Input
+                            value={carrier.ensemblesPrevisional}
+                            onChange={(e) => updateCarrier(carrier.id, 'ensemblesPrevisional', e.target.value)}
+                            className="h-8 text-xs"
+                            placeholder="0"
+                            disabled={carrier.response !== 'pending'}
+                          />
+                        </div>
+
+                        {/* Comment */}
+                        <div className="flex items-center">
+                          <Textarea
+                            value={carrier.comment}
+                            onChange={(e) => updateCarrier(carrier.id, 'comment', e.target.value)}
+                            className="h-8 text-xs resize-none"
+                            placeholder="Commentaire..."
+                            rows={1}
+                          />
+                        </div>
+
+                        {/* Status */}
+                        <div className="flex items-center gap-2">
+                          <motion.div
+                            key={`${carrier.response}-${carrier.validated}`}
+                            initial={{ scale: 0.8 }}
+                            animate={{ scale: 1 }}
+                          >
+                            <Badge className={`${statusConfig.color} flex items-center gap-1`}>
+                              <span>{statusConfig.icon}</span>
+                              <span className="text-xs">{statusConfig.label}</span>
+                            </Badge>
+                          </motion.div>
+                          
+                          {/* Bouton détails mission pour les transporteurs confirmés */}
+                          {carrier.response === 'yes' && (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => handleOpenMissionDetails(carrier)}
+                              className={`h-7 w-7 p-0 rounded-full transition-all ${
+                                savedCarriers.has(carrier.id)
+                                  ? 'bg-green-50 border-green-300 hover:bg-green-100'
+                                  : 'bg-blue-50 border-blue-300 hover:bg-blue-100'
+                              }`}
+                              title="Détails mission"
+                            >
+                              {savedCarriers.has(carrier.id) ? (
+                                <CheckCircle2 className="h-4 w-4 text-green-600" />
+                              ) : (
+                                <FileText className="h-4 w-4 text-blue-600" />
+                              )}
+                            </Button>
+                          )}
+                        </div>
+                      </motion.div>
+                    );
+                  })}
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
           {/* Micro-feedbacks */}
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
@@ -819,7 +1069,7 @@ export function CarrierReturnsEntry({ onBack, onBackToDashboard, onNext, searchC
               <div className="flex items-center gap-2">
                 <Package className="w-4 h-4" style={{ color: '#F6A20E' }} />
                 <span className="text-sm text-gray-600">
-                  {Math.max(0, remainingEnsembles)} restant{remainingEnsembles > 1 ? 's' : ''}
+                  {Math.max(0, remainingEnsembles)} tonne{remainingEnsembles > 1 ? 's' : ''} restante{remainingEnsembles > 1 ? 's' : ''}
                 </span>
               </div>
             </div>

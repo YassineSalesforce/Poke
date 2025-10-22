@@ -57,6 +57,7 @@ const transporterContactSchema = new mongoose.Schema({
   status: { type: String, enum: ['yes', 'pending', 'no'], required: true },
   volume: { type: Number, required: true },
   comment: { type: String },
+  isAlternative: { type: Boolean, default: false }, // Champ pour identifier les transporteurs alternatifs
   createdAt: { type: Date, default: Date.now },
   updatedAt: { type: Date, default: Date.now }
 });
@@ -95,6 +96,27 @@ const transporterFavoriteSchema = new mongoose.Schema({
 });
 
 const TransporterFavorite = mongoose.model('TransporterFavorite', transporterFavoriteSchema);
+
+// Schéma pour les routes transporteurs
+const transporterRouteSchema = new mongoose.Schema({
+  userId: { type: String, required: true },
+  carrierId: { type: String, required: true },
+  carrierName: { type: String, required: true },
+  originCountry: { type: String, required: true },
+  originRegion: { type: String, required: true },
+  originDepartment: { type: String, required: true },
+  originCity: { type: String, required: true },
+  destinationCountry: { type: String, required: true },
+  destinationRegion: { type: String, required: true },
+  destinationDepartment: { type: String, required: true },
+  destinationCity: { type: String, required: true },
+  vehicleType: { type: String, required: true },
+  isActive: { type: Boolean, default: true },
+  createdAt: { type: Date, default: Date.now },
+  updatedAt: { type: Date, default: Date.now }
+});
+
+const TransporterRoute = mongoose.model('TransporterRoute', transporterRouteSchema);
 
 const authenticateToken = (req, res, next) => {
   const authHeader = req.headers['authorization'];
@@ -483,6 +505,86 @@ app.put('/api/transporter-favorites/:userId/:transporterId/increment', async (re
     res.json(favorite);
   } catch (error) {
     console.error('Erreur lors de la mise à jour des missions réussies:', error);
+    res.status(500).json({ message: 'Erreur serveur' });
+  }
+});
+
+// Routes pour les routes transporteurs
+// Créer une nouvelle route
+app.post('/api/transporter-routes', async (req, res) => {
+  try {
+    const routeData = {
+      ...req.body,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+
+    const route = new TransporterRoute(routeData);
+    await route.save();
+    res.status(201).json(route);
+  } catch (error) {
+    console.error('Erreur lors de la création de la route:', error);
+    res.status(500).json({ message: 'Erreur serveur' });
+  }
+});
+
+// Récupérer les routes d'un utilisateur
+app.get('/api/transporter-routes/:userId', async (req, res) => {
+  try {
+    const { userId } = req.params;
+
+    const routes = await TransporterRoute
+      .find({ userId })
+      .sort({ createdAt: -1 })
+      .exec();
+
+    res.json(routes);
+  } catch (error) {
+    console.error('Erreur lors de la récupération des routes:', error);
+    res.status(500).json({ message: 'Erreur serveur' });
+  }
+});
+
+// Mettre à jour une route
+app.put('/api/transporter-routes/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const updateData = {
+      ...req.body,
+      updatedAt: new Date(),
+    };
+
+    const route = await TransporterRoute.findByIdAndUpdate(
+      id,
+      updateData,
+      { new: true }
+    );
+
+    if (!route) {
+      return res.status(404).json({ message: 'Route non trouvée' });
+    }
+
+    res.json(route);
+  } catch (error) {
+    console.error('Erreur lors de la mise à jour de la route:', error);
+    res.status(500).json({ message: 'Erreur serveur' });
+  }
+});
+
+// Supprimer une route
+app.delete('/api/transporter-routes/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const route = await TransporterRoute.findByIdAndDelete(id);
+
+    if (!route) {
+      return res.status(404).json({ message: 'Route non trouvée' });
+    }
+
+    res.json({ message: 'Route supprimée avec succès' });
+  } catch (error) {
+    console.error('Erreur lors de la suppression de la route:', error);
     res.status(500).json({ message: 'Erreur serveur' });
   }
 });

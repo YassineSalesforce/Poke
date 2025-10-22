@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import React, { useState } from 'react';
 import {
   Drawer,
   DrawerClose,
@@ -89,7 +89,7 @@ export function CarrierResponseDrawer({ carrier, isOpen, onClose, onSave }: Carr
             </div>
             <div className="flex justify-between items-center">
               <span className="text-sm text-gray-600">Capacité possible</span>
-              <span className="text-sm">{carrier.capacity} ensemble{carrier.capacity > 1 ? 's' : ''}</span>
+              <span className="text-sm">{carrier.capacity} tonne{carrier.capacity > 1 ? 's' : ''}</span>
             </div>
             <div className="flex justify-between items-center">
               <span className="text-sm text-gray-600">Score global</span>
@@ -142,7 +142,7 @@ export function CarrierResponseDrawer({ carrier, isOpen, onClose, onSave }: Carr
           {status === 'yes' && (
             <div className="space-y-2">
               <Label htmlFor="ensembles">
-                Nombre d'ensembles pris *
+                Nombre de tonnes *
               </Label>
               <Input
                 id="ensembles"
@@ -155,7 +155,7 @@ export function CarrierResponseDrawer({ carrier, isOpen, onClose, onSave }: Carr
                 className="rounded-lg"
               />
               <p className="text-sm text-gray-500">
-                Maximum disponible : {carrier.capacity} ensemble{carrier.capacity > 1 ? 's' : ''}
+                Maximum disponible : {carrier.capacity} tonne{carrier.capacity > 1 ? 's' : ''}
               </p>
             </div>
           )}

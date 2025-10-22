@@ -276,14 +276,6 @@ export function GeocodingInput({
                   {geocodeResult.city && <div><strong>Ville:</strong> {geocodeResult.city}</div>}
                   {geocodeResult.postalCode && <div><strong>Code postal:</strong> {geocodeResult.postalCode}</div>}
                   {geocodeResult.zoneCode && <div><strong>Code zone:</strong> {geocodeResult.zoneCode}</div>}
-                  <div><strong>Confiance:</strong> 
-                    <span className={`ml-1 ${GeocodingService.getConfidenceColor(geocodeResult.confidence)}`}>
-                      {GeocodingService.getConfidenceLevel(geocodeResult.confidence)} ({Math.round(geocodeResult.confidence)}%)
-                    </span>
-                  </div>
-                  {geocodeResult.latitude && geocodeResult.longitude && (
-                    <div><strong>Coordonnées:</strong> {geocodeResult.latitude.toFixed(4)}, {geocodeResult.longitude.toFixed(4)}</div>
-                  )}
                 </div>
               </div>
             </div>

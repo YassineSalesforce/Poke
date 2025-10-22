@@ -197,13 +197,20 @@ export function SearchForm({ onBack, onSearch, showBackButton = true, userId }: 
             {/* Logo officiel */}
             <div className="flex items-center gap-3">
               <a 
-                href="/" 
+                href="#"
+                onClick={(e) => {
+                  e.preventDefault();
+                  if (onBack) {
+                    onBack();
+                  }
+                }}
                 className="transition-all duration-300 hover:scale-105"
                 style={{ 
                   fontSize: '1.5rem',
                   fontWeight: '800',
                   color: 'white',
-                  textDecoration: 'none'
+                  textDecoration: 'none',
+                  cursor: 'pointer'
                 }}
               >
                 TransportHub
@@ -400,8 +407,6 @@ export function SearchForm({ onBack, onSearch, showBackButton = true, userId }: 
                           </SelectTrigger>
                           <SelectContent>
                             <SelectItem value="tonnes">Tonnes</SelectItem>
-                            <SelectItem value="palettes">Palettes</SelectItem>
-                            <SelectItem value="m3">M³</SelectItem>
                           </SelectContent>
                         </Select>
                       </div>

@@ -33,6 +33,10 @@ export interface AlternativeTransporter {
   nombreMissions: number;
   confiance: number;
   dernierMission: string;
+  status?: 'yes' | 'pending' | 'no' | '';
+  ensemblesTaken?: number;
+  ensemblesPrevisional?: number;
+  comment?: string;
 }
 
 export class MissionService {

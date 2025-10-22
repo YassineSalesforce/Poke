@@ -13,9 +13,10 @@ import { useAuth } from '../contexts/AuthContext';
 interface HeaderProps {
   onNewSearch: () => void;
   onManageRoutes?: () => void;
+  onDashboard?: () => void;
 }
 
-export function Header({ onNewSearch, onManageRoutes }: HeaderProps) {
+export function Header({ onNewSearch, onManageRoutes, onDashboard }: HeaderProps) {
   const { user, logout } = useAuth();
 
   const handleLogout = () => {
@@ -28,13 +29,20 @@ export function Header({ onNewSearch, onManageRoutes }: HeaderProps) {
         {/* Logo officiel */}
         <div className="flex items-center gap-3">
           <a 
-            href="/" 
+            href="#"
+            onClick={(e) => {
+              e.preventDefault();
+              if (onDashboard) {
+                onDashboard();
+              }
+            }}
             className="transition-all duration-300 hover:scale-105"
             style={{ 
               fontSize: '1.5rem',
               fontWeight: '800',
               color: 'white',
-              textDecoration: 'none'
+              textDecoration: 'none',
+              cursor: 'pointer'
             }}
           >
             TransportHub

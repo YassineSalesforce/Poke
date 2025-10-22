@@ -185,13 +185,20 @@ export function MissionOrders({ onBack, onBackToDashboard, searchCriteria, carri
             {/* Logo officiel */}
             <div className="flex items-center gap-3">
               <a 
-                href="/" 
+                href="#"
+                onClick={(e) => {
+                  e.preventDefault();
+                  if (onBackToDashboard) {
+                    onBackToDashboard();
+                  }
+                }}
                 className="transition-all duration-300 hover:scale-105"
                 style={{ 
                   fontSize: '1.5rem',
                   fontWeight: '800',
                   color: 'white',
-                  textDecoration: 'none'
+                  textDecoration: 'none',
+                  cursor: 'pointer'
                 }}
               >
                 TransportHub

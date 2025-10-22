@@ -359,11 +359,6 @@ export function LandingPage({ onStart }: { onStart: () => void }) {
       {/* Header */}
       <div className="header">
         <a href="/" className="logo">TransportHub</a>
-        <div className="header-buttons">
-          <button className="header-button" onClick={onStart}>
-            Proposer un transport
-          </button>
-        </div>
       </div>
 
       <div className="hero-container">
