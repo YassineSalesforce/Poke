@@ -3,7 +3,11 @@ import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { TrendingUp, Package, Weight } from 'lucide-react';
 import { UserSearchHistoryService, SearchWithStatus } from '../services/UserSearchHistoryService';
 
-export function StatsCard() {
+interface StatsCardProps {
+  userId?: string;
+}
+
+export function StatsCard({ userId }: StatsCardProps) {
   const [stats, setStats] = useState({
     successRate: '82 %',
     missionsInProgress: '0',
@@ -14,9 +18,9 @@ export function StatsCard() {
   useEffect(() => {
     const fetchStats = async () => {
       try {
-        const userId = 'user-1'; // Utilisateur actuel
+        const currentUserId = userId || 'user-1'; // Utiliser l'ID utilisateur passé en props
         // Utiliser l'historique récent (comme dans RecentHistory)
-        const searches = await UserSearchHistoryService.getRecentSearchesWithStatus(userId, 10);
+        const searches = await UserSearchHistoryService.getRecentSearchesWithStatus(currentUserId, 10);
         
         // Calculer le volume transporté (recherches terminées)
         const completedSearches = searches.filter(search => search.status === 'completed');

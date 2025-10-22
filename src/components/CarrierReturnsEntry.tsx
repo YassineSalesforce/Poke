@@ -88,7 +88,7 @@ export function CarrierReturnsEntry({ onBack, onBackToDashboard, onNext, searchC
   useEffect(() => {
     const loadFavorites = async () => {
       try {
-        const userFavorites = await TransporterFavoriteService.getFavorites('user-1');
+        const userFavorites = await TransporterFavoriteService.getFavorites(searchCriteria?.userId || 'user-1');
         const favoriteIds = new Set(userFavorites.map(fav => fav.transporterId));
         setFavorites(favoriteIds);
       } catch (error) {
@@ -258,7 +258,7 @@ export function CarrierReturnsEntry({ onBack, onBackToDashboard, onNext, searchC
       
       if (isFavorite) {
         // Retirer des favoris
-        await TransporterFavoriteService.removeFromFavorites('user-1', carrier.id);
+        await TransporterFavoriteService.removeFromFavorites(searchCriteria?.userId || 'user-1', carrier.id);
         setFavorites(prev => {
           const newFavorites = new Set(prev);
           newFavorites.delete(carrier.id);
@@ -266,13 +266,13 @@ export function CarrierReturnsEntry({ onBack, onBackToDashboard, onNext, searchC
         });
       } else {
         // Ajouter aux favoris
-        await TransporterFavoriteService.addToFavorites('user-1', carrier.id, carrier.name);
+        await TransporterFavoriteService.addToFavorites(searchCriteria?.userId || 'user-1', carrier.id, carrier.name);
         setFavorites(prev => new Set(prev).add(carrier.id));
         
         // Si le transporteur est validé (status "yes"), incrémenter les missions réussies
         if (carrier.response === 'yes') {
           try {
-            await TransporterFavoriteService.incrementSuccessfulMissions('user-1', carrier.id);
+            await TransporterFavoriteService.incrementSuccessfulMissions(searchCriteria?.userId || 'user-1', carrier.id);
           } catch (error) {
             console.error('Erreur lors de l\'incrémentation des missions réussies:', error);
           }
@@ -295,7 +295,7 @@ export function CarrierReturnsEntry({ onBack, onBackToDashboard, onNext, searchC
       // Préparer les données pour l'API
       const contactData = {
         searchId: searchId,
-        userId: 'user-1', // TODO: Récupérer l'ID utilisateur depuis le contexte d'auth
+        userId: searchCriteria?.userId || 'user-1', // Utiliser l'ID utilisateur depuis les critères
         transporterId: carrier.id,
         transporterName: carrier.name,
         route: carrier.route,
@@ -347,7 +347,7 @@ export function CarrierReturnsEntry({ onBack, onBackToDashboard, onNext, searchC
         
         const missionData: MissionDetailsData = {
           searchId: searchId,
-          userId: 'user-1', // TODO: Récupérer l'ID utilisateur depuis le contexte d'auth
+          userId: searchCriteria?.userId || 'user-1', // Utiliser l'ID utilisateur depuis les critères
           transporterId: selectedCarrier.id,
           transporterName: selectedCarrier.name,
           route: selectedCarrier.route,

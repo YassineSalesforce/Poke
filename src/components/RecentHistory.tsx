@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Badge } from './ui/badge';
-import { ArrowRight, Loader2 } from 'lucide-react';
+import { ArrowRight, Loader2, ChevronLeft, ChevronRight } from 'lucide-react';
 import { UserSearchHistoryService, SearchWithStatus } from '../services/UserSearchHistoryService';
 
 interface RecentHistoryProps {
@@ -12,25 +12,41 @@ interface RecentHistoryProps {
 export function RecentHistory({ userId, onSearchClick }: RecentHistoryProps) {
   const [searches, setSearches] = useState<SearchWithStatus[]>([]);
   const [loading, setLoading] = useState(true);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalSearches, setTotalSearches] = useState(0);
+  
+  const itemsPerPage = 5; // Nombre d'éléments par page
 
   useEffect(() => {
     const loadRecentSearches = async () => {
       try {
         console.log('🔄 Chargement des recherches récentes pour userId:', userId);
-        const recentSearches = await UserSearchHistoryService.getRecentSearchesWithStatus(userId, 5);
-        console.log('📊 Recherches récupérées:', recentSearches);
-        setSearches(recentSearches);
+        
+        // Charger toutes les recherches pour calculer le total
+        const allSearches = await UserSearchHistoryService.getUserSearchHistory(userId);
+        setTotalSearches(allSearches.length);
+        setTotalPages(Math.ceil(allSearches.length / itemsPerPage));
+        
+        // Charger seulement les recherches de la page courante
+        const startIndex = (currentPage - 1) * itemsPerPage;
+        const endIndex = startIndex + itemsPerPage;
+        const pageSearches = allSearches.slice(startIndex, endIndex);
+        
+        console.log('📊 Recherches récupérées:', pageSearches);
+        setSearches(pageSearches);
       } catch (error) {
         console.error('❌ Erreur lors du chargement des recherches récentes:', error);
-        // En cas d'erreur, on met un tableau vide pour éviter le crash
         setSearches([]);
+        setTotalSearches(0);
+        setTotalPages(1);
       } finally {
         setLoading(false);
       }
     };
 
     loadRecentSearches();
-  }, [userId]);
+  }, [userId, currentPage]);
 
   const getStatusBadge = (status: SearchWithStatus['status']) => {
     const statusConfig = {
@@ -69,6 +85,21 @@ export function RecentHistory({ userId, onSearchClick }: RecentHistoryProps) {
       }
     }
     return fullAddress;
+  };
+
+  const handlePageChange = (page: number) => {
+    setCurrentPage(page);
+  };
+
+  const generatePageNumbers = (): (number | string)[] => {
+    const pages: (number | string)[] = [];
+    
+    // Toujours afficher toutes les pages
+    for (let i = 1; i <= totalPages; i++) {
+      pages.push(i);
+    }
+    
+    return pages;
   };
 
   if (loading) {
@@ -132,6 +163,45 @@ export function RecentHistory({ userId, onSearchClick }: RecentHistoryProps) {
             );
           })}
         </div>
+        
+        {/* Barre de pagination avec flèches */}
+        {totalSearches > 0 && totalPages > 1 && (
+          <div className="mt-6 flex items-center justify-center">
+            <div className="flex items-center gap-4">
+              {/* Flèche gauche */}
+              <button
+                onClick={() => handlePageChange(currentPage - 1)}
+                disabled={currentPage === 1}
+                className={`relative px-4 py-2 rounded-full text-sm font-medium transition-all duration-300 transform hover:scale-110 ${
+                  currentPage === 1
+                    ? 'text-gray-400 cursor-not-allowed'
+                    : 'text-gray-600 hover:bg-gray-100 hover:text-gray-800'
+                }`}
+              >
+                <ChevronLeft size={20} />
+              </button>
+              
+              {/* Indicateur de page actuelle */}
+              <div className="flex items-center gap-2">
+                {/* Petit trait en dessous */}
+                <div className="w-8 h-0.5 bg-yellow-400 rounded-full"></div>
+              </div>
+              
+              {/* Flèche droite */}
+              <button
+                onClick={() => handlePageChange(currentPage + 1)}
+                disabled={currentPage === totalPages}
+                className={`relative px-4 py-2 rounded-full text-sm font-medium transition-all duration-300 transform hover:scale-110 ${
+                  currentPage === totalPages
+                    ? 'text-gray-400 cursor-not-allowed'
+                    : 'text-gray-600 hover:bg-gray-100 hover:text-gray-800'
+                }`}
+              >
+                <ChevronRight size={20} />
+              </button>
+            </div>
+          </div>
+        )}
       </CardContent>
     </Card>
   );

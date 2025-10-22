@@ -9,6 +9,10 @@ export interface TransporterData {
   note: number;
   derniereMission: string;
   statut: 'disponible' | 'occupe' | 'indisponible';
+  status?: 'yes' | 'pending' | 'no' | ''; // Nouveau statut pour les contacts
+  ensemblesTaken?: number; // Nombre d'ensembles pris
+  ensemblesPrevisional?: number; // Nombre d'ensembles prévisionnels
+  comment?: string; // Commentaire du contact
   contact: {
     nom: string;
     telephone: string;

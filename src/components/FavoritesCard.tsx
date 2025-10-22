@@ -3,14 +3,18 @@ import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Star, Truck, Heart } from 'lucide-react';
 import { TransporterFavoriteService, TransporterFavorite } from '../services/TransporterFavoriteService';
 
-export function FavoritesCard() {
+interface FavoritesCardProps {
+  userId?: string;
+}
+
+export function FavoritesCard({ userId }: FavoritesCardProps) {
   const [favorites, setFavorites] = useState<TransporterFavorite[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const loadFavorites = async () => {
       try {
-        const userFavorites = await TransporterFavoriteService.getFavorites('user-1');
+        const userFavorites = await TransporterFavoriteService.getFavorites(userId || 'user-1');
         setFavorites(userFavorites);
       } catch (error) {
         console.error('Erreur lors du chargement des favoris:', error);

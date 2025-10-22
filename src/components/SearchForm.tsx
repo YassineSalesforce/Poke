@@ -27,9 +27,10 @@ interface SearchFormProps {
   onBack: () => void;
   onSearch?: (criteria: any) => void;
   showBackButton?: boolean;
+  userId?: string;
 }
 
-export function SearchForm({ onBack, onSearch, showBackButton = true }: SearchFormProps) {
+export function SearchForm({ onBack, onSearch, showBackButton = true, userId }: SearchFormProps) {
   const [originInput, setOriginInput] = useState('');
   const [destinationInput, setDestinationInput] = useState('');
   const [originGeocodeResult, setOriginGeocodeResult] = useState<GeocodingResult | null>(null);
@@ -141,7 +142,7 @@ export function SearchForm({ onBack, onSearch, showBackButton = true }: SearchFo
     let savedSearchId = null;
     try {
       const savedSearch = await UserSearchService.saveSearch({
-        userId: 'user-1', // Pour l'instant, utiliser un ID fixe
+        userId: userId || 'user-1', // Utiliser l'ID utilisateur passé en props
         depart: criteria.depart,
         arrivee: criteria.arrivee,
         departAdresse: criteria.departAdresse,

@@ -198,7 +198,31 @@ export function SearchResults({ onBack, onBackToDashboard, onNext, onCreateRoute
             quantite: searchCriteria.quantite || 1
           };
           
-          const matchingTransporters = TransporterService.searchTransporters(criteria);
+          let matchingTransporters = TransporterService.searchTransporters(criteria);
+          
+          // Si on a des contacts mis à jour, les appliquer aux transporteurs
+          if (searchCriteria.updatedContacts && searchCriteria.updatedContacts.length > 0) {
+            console.log('🔄 Application des contacts mis à jour aux transporteurs:', searchCriteria.updatedContacts);
+            
+            matchingTransporters = matchingTransporters.map(transporter => {
+              const updatedContact = searchCriteria.updatedContacts.find((contact: any) => 
+                contact.transporterId === transporter.id
+              );
+              
+              if (updatedContact) {
+                return {
+                  ...transporter,
+                  status: updatedContact.status,
+                  ensemblesTaken: updatedContact.status === 'yes' ? updatedContact.volume : 0,
+                  ensemblesPrevisional: updatedContact.status === 'pending' ? updatedContact.volume : 0,
+                  comment: updatedContact.comment || ''
+                };
+              }
+              
+              return transporter;
+            });
+          }
+          
           setTransporters(matchingTransporters);
           
           // Charger les transporteurs alternatifs basés sur les missions
@@ -226,15 +250,15 @@ export function SearchResults({ onBack, onBackToDashboard, onNext, onCreateRoute
   const calculateRemaining = () => {
     const totalQuantity = searchCriteria?.quantite || totalEnsembles;
     
-    // Calculer les ensembles confirmés (statut 'occupe' = confirmé)
+    // Calculer les ensembles confirmés (statut 'yes' ou 'occupe' = confirmé)
     const confirmedTaken = transporters
-      .filter(t => t.statut === 'occupe')
-      .reduce((sum, t) => sum + t.capacite, 0);
+      .filter(t => t.status === 'yes' || t.statut === 'occupe')
+      .reduce((sum, t) => sum + (t.ensemblesTaken || (t.statut === 'occupe' ? t.capacite : 0)), 0);
     
-    // Calculer les ensembles en attente (statut 'en_attente')
+    // Calculer les ensembles en attente (statut 'pending' ou 'en_attente')
     const preReservedTotal = transporters
-      .filter(t => t.statut === 'en_attente')
-      .reduce((sum, t) => sum + t.capacite, 0);
+      .filter(t => t.status === 'pending' || t.statut === 'en_attente')
+      .reduce((sum, t) => sum + (t.ensemblesPrevisional || (t.statut === 'en_attente' ? t.capacite : 0)), 0);
     
     const remaining = totalQuantity - confirmedTaken - preReservedTotal;
     
@@ -243,7 +267,15 @@ export function SearchResults({ onBack, onBackToDashboard, onNext, onCreateRoute
       confirmedTaken,
       preReservedTotal,
       remaining,
-      transportersWithStatus: transporters.filter(t => t.statut !== 'disponible').length
+      transportersWithStatus: transporters.filter(t => (t.status && t.status !== '') || t.statut !== 'disponible').length,
+      transporters: transporters.map(t => ({
+        id: t.id,
+        name: t.nom,
+        status: t.status,
+        statut: t.statut,
+        ensemblesTaken: t.ensemblesTaken,
+        capacite: t.capacite
+      }))
     });
     
     return remaining;
@@ -304,7 +336,7 @@ export function SearchResults({ onBack, onBackToDashboard, onNext, onCreateRoute
         if (transporter) {
           await TransporterContactService.saveContact({
             searchId: searchCriteria.searchId,
-            userId: 'user-1',
+            userId: searchCriteria?.userId || 'user-1',
             transporterId: carrierId,
             transporterName: transporter.nom,
             route: `${transporter.zoneDepart} → ${transporter.zoneArrivee}`,
@@ -335,11 +367,15 @@ export function SearchResults({ onBack, onBackToDashboard, onNext, onCreateRoute
       return c;
     }));
     
-    // Mettre à jour la liste transporters pour synchroniser l'affichage
     setTransporters(prev => prev.map(t => {
       if (t.id === carrierId) {
         return {
           ...t,
+          status: data.response,
+          ensemblesTaken: data.response === 'yes' ? parseInt(data.ensemblesTaken) : 0,
+          ensemblesPrevisional: data.response === 'pending' ? parseInt(data.ensemblesPrevisional) : 0,
+          comment: data.comment,
+          // Garder aussi l'ancien système pour compatibilité
           statut: data.response === 'yes' ? 'occupe' : 
                  data.response === 'pending' ? 'en_attente' : 
                  'indisponible',
@@ -350,6 +386,10 @@ export function SearchResults({ onBack, onBackToDashboard, onNext, onCreateRoute
       }
       return t;
     }));
+    
+    // Fermer le drawer et afficher un message de confirmation
+    setIsDrawerOpen(false);
+    toast.success('Contact transporteur enregistré avec succès');
   };
 
   const handleDisableRoute = (carrierId: string) => {
@@ -361,7 +401,6 @@ export function SearchResults({ onBack, onBackToDashboard, onNext, onCreateRoute
   const handleCreateRoute = (carrierId: string) => {
     const carrier = alternativeCarriers.find(c => c.id === carrierId);
     if (carrier) {
-      // Add to main carriers list
       const newCarrier: Carrier = {
         id: `new-${Date.now()}`,
         name: carrier.name,
@@ -377,17 +416,22 @@ export function SearchResults({ onBack, onBackToDashboard, onNext, onCreateRoute
     }
   };
 
-  const getStatusConfig = (status: Carrier['status'], ensemblesTaken?: number, ensemblesPrevisional?: number) => {
-    if (status === 'yes' && ensemblesTaken) {
-      return { label: `Confirmé – ${ensemblesTaken}`, color: 'bg-green-100 text-green-700', icon: '✅' };
+  const getStatusConfig = (status: Carrier['status'], ensemblesTaken?: number, ensemblesPrevisional?: number, statut?: string, capacite?: number) => {
+    // Utiliser le nouveau statut en priorité, sinon l'ancien
+    const actualStatus = status || (statut === 'occupe' ? 'yes' : statut === 'en_attente' ? 'pending' : statut === 'indisponible' ? 'no' : '');
+    const actualEnsemblesTaken = ensemblesTaken || (statut === 'occupe' ? capacite : 0);
+    const actualEnsemblesPrevisional = ensemblesPrevisional || (statut === 'en_attente' ? capacite : 0);
+    
+    if (actualStatus === 'yes' && actualEnsemblesTaken) {
+      return { label: `Confirmé – ${actualEnsemblesTaken}`, color: 'bg-green-100 text-green-700', icon: '✅' };
     }
-    if (status === 'pending' && ensemblesPrevisional) {
-      return { label: `Pré-réservé – ${ensemblesPrevisional}`, color: 'bg-amber-100 text-amber-700', icon: '⏳' };
+    if (actualStatus === 'pending' && actualEnsemblesPrevisional) {
+      return { label: `Pré-réservé – ${actualEnsemblesPrevisional}`, color: 'bg-amber-100 text-amber-700', icon: '⏳' };
     }
-    if (status === 'pending') {
+    if (actualStatus === 'pending') {
       return { label: 'En attente', color: 'bg-amber-100 text-amber-700', icon: '⏳' };
     }
-    if (status === 'no') {
+    if (actualStatus === 'no') {
       return { label: 'Refusé', color: 'bg-red-100 text-red-700', icon: '❌' };
     }
     return { label: 'Non contacté', color: 'bg-gray-100 text-gray-700', icon: '⚪' };
@@ -395,11 +439,9 @@ export function SearchResults({ onBack, onBackToDashboard, onNext, onCreateRoute
 
   return (
     <div className="min-h-screen flex flex-col" style={{ backgroundColor: '#F4F5F7' }}>
-      {/* Header */}
       <header className="px-8 py-4" style={{ backgroundColor: '#1a1a1a' }}>
         <div className="max-w-[1600px] mx-auto">
           <div className="flex items-center justify-between mb-4">
-            {/* Logo officiel */}
             <div className="flex items-center gap-3">
               <a 
                 href="/" 
@@ -415,7 +457,6 @@ export function SearchResults({ onBack, onBackToDashboard, onNext, onCreateRoute
               </a>
             </div>
 
-            {/* Action Buttons */}
             <div className="flex items-center gap-3">
               <Button
                 variant="outline"
@@ -474,14 +515,12 @@ export function SearchResults({ onBack, onBackToDashboard, onNext, onCreateRoute
         </div>
       </header>
 
-      {/* Summary Banner */}
       <div className="bg-white border-b border-gray-200 px-8 py-6">
         <div className="max-w-[1600px] mx-auto">
           <Card className="shadow-sm border-gray-200">
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-8">
-                  {/* Route */}
                   <div className="flex items-center gap-3">
                     <div className="flex items-center gap-2">
                       <MapPin className="w-5 h-5" style={{ color: '#2B3A55' }} />
@@ -652,21 +691,21 @@ export function SearchResults({ onBack, onBackToDashboard, onNext, onCreateRoute
 
                         {/* Status */}
                         <div className="flex items-center">
-                          <Badge className={`${
-                            transporter.statut === 'disponible' ? 'bg-gray-100 text-gray-700' :
-                            transporter.statut === 'occupe' ? 'bg-green-100 text-green-700' :
-                            transporter.statut === 'en_attente' ? 'bg-yellow-100 text-yellow-700' :
-                            'bg-red-100 text-red-700'
-                          } flex items-center gap-1`}>
-                            <span>{transporter.statut === 'disponible' ? '📞' : 
-                                   transporter.statut === 'occupe' ? '✅' : 
-                                   transporter.statut === 'en_attente' ? '⏳' : '❌'}</span>
-                            <span className="text-xs">
-                              {transporter.statut === 'disponible' ? 'Non contacté' :
-                               transporter.statut === 'occupe' ? `Confirmé – ${transporter.capacite}` :
-                               transporter.statut === 'en_attente' ? `En attente – ${transporter.capacite}` : 'Indisponible'}
-                            </span>
-                          </Badge>
+                          {(() => {
+                            const statusConfig = getStatusConfig(
+                              transporter.status, 
+                              transporter.ensemblesTaken, 
+                              transporter.ensemblesPrevisional,
+                              transporter.statut,
+                              transporter.capacite
+                            );
+                            return (
+                              <Badge className={`${statusConfig.color} flex items-center gap-1`}>
+                                <span>{statusConfig.icon}</span>
+                                <span className="text-xs">{statusConfig.label}</span>
+                              </Badge>
+                            );
+                          })()}
                         </div>
 
                         {/* Actions */}
@@ -674,11 +713,19 @@ export function SearchResults({ onBack, onBackToDashboard, onNext, onCreateRoute
                           <Button
                             onClick={() => handleContactCarrier(transporter)}
                             size="sm"
-                            className="h-8 px-4 text-xs rounded-lg transition-all hover:shadow-md"
-                            style={{ backgroundColor: '#F6A20E', color: 'white' }}
+                            disabled={(transporter.status && transporter.status !== '') || transporter.statut !== 'disponible'}
+                            className={`h-8 px-4 text-xs rounded-lg transition-all hover:shadow-md ${
+                              (transporter.status && transporter.status !== '') || transporter.statut !== 'disponible'
+                                ? 'opacity-50 cursor-not-allowed' 
+                                : ''
+                            }`}
+                            style={{ 
+                              backgroundColor: (transporter.status && transporter.status !== '') || transporter.statut !== 'disponible' ? '#ccc' : '#F6A20E', 
+                              color: 'white' 
+                            }}
                           >
                             <Phone className="w-3 h-3 mr-1" />
-                            Contacter
+                            {(transporter.status && transporter.status !== '') || transporter.statut !== 'disponible' ? 'Contacté' : 'Contacter'}
                           </Button>
                         </div>
                       </motion.div>

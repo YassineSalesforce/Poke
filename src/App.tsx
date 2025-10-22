@@ -15,6 +15,7 @@ import { CarrierReturnsEntry } from './components/CarrierReturnsEntry';
 import { MissionOrders } from './components/MissionOrders';
 import { RouteManagement } from './components/RouteManagement';
 import { ProcessOverview } from './components/ProcessOverview';
+import { TransporterContactService } from './services/TransporterContactService';
 import { ExternalLink, Route, X } from 'lucide-react';
 import { Toaster } from './components/ui/sonner';
 
@@ -22,7 +23,7 @@ import { Toaster } from './components/ui/sonner';
 type Screen = 'landing' | 'dashboard' | 'search-form' | 'search-results' | 'carrier-returns' | 'mission-orders' | 'route-management' | 'process-overview';
 
 function AppContent() {
-  const { isAuthenticated, isLoading } = useAuth();
+  const { user, isAuthenticated, isLoading } = useAuth();
   const [currentScreen, setCurrentScreen] = useState<Screen>('landing');
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [showLogin, setShowLogin] = useState(false);
@@ -71,8 +72,13 @@ function AppContent() {
 
   const handleSearchSubmit = (criteria?: any) => {
     console.log('🚀 App.tsx - handleSearchSubmit appelé avec:', criteria);
-    setSearchCriteria(criteria); // Sauvegarder les critères
-    console.log('💾 searchCriteria sauvegardé:', criteria);
+    // Ajouter l'ID utilisateur aux critères
+    const criteriaWithUserId = {
+      ...criteria,
+      userId: user?.id
+    };
+    setSearchCriteria(criteriaWithUserId); // Sauvegarder les critères
+    console.log('💾 searchCriteria sauvegardé:', criteriaWithUserId);
     setHasSearched(true);
     setCurrentScreen('search-results');
     console.log('📱 Navigation vers search-results');
@@ -86,7 +92,39 @@ function AppContent() {
     setCurrentScreen('carrier-returns');
   };
 
-  const handleBackToResults = () => {
+  const handleBackToResults = async () => {
+    // Recharger les résultats avec les données mises à jour depuis la base de données
+    if (searchCriteria?.searchId) {
+      try {
+        // Recharger les contacts transporteurs mis à jour
+        const updatedContacts = await TransporterContactService.getContactsBySearch(searchCriteria.searchId);
+        
+        // Mettre à jour les données des transporteurs
+        const updatedCarrierReturns = updatedContacts.map(contact => ({
+          id: contact.transporterId,
+          name: contact.transporterName,
+          route: contact.route,
+          response: contact.status,
+          ensemblesTaken: contact.status === 'yes' ? contact.volume.toString() : '',
+          ensemblesPrevisional: contact.status === 'pending' ? contact.volume.toString() : '',
+          comment: contact.comment || '',
+          validated: contact.status === 'yes'
+        }));
+        
+        setCarrierReturns(updatedCarrierReturns);
+        
+        // Ajouter les contacts mis à jour aux critères de recherche pour les passer aux résultats
+        setSearchCriteria(prev => ({
+          ...prev,
+          updatedContacts: updatedContacts
+        }));
+        
+        console.log('🔄 Données mises à jour pour les résultats:', updatedContacts);
+      } catch (error) {
+        console.error('❌ Erreur lors du rechargement des données:', error);
+      }
+    }
+    
     setCurrentScreen('search-results');
   };
 
@@ -214,14 +252,14 @@ function AppContent() {
                 <div className="grid grid-cols-2 gap-6">
                   {/* Left Column */}
                   <div className="space-y-6">
-                    <StatsCard />
-                    <RecentHistory userId="user-1" onSearchClick={handleSearchClick} />
+                    <StatsCard userId={user?.id} />
+                    <RecentHistory userId={user?.id || ''} onSearchClick={handleSearchClick} />
                   </div>
 
                   {/* Right Column */}
                   <div className="space-y-6">
-                    <AlertsCard />
-                    <FavoritesCard />
+                    <AlertsCard userId={user?.id} />
+                    <FavoritesCard userId={user?.id} />
                   </div>
                 </div>
               </div>
@@ -242,14 +280,6 @@ function AppContent() {
                     Vue globale du processus
                     <ExternalLink className="w-3 h-3" />
                   </button>
-                  <a
-                    href="#"
-                    className="text-sm flex items-center gap-1 hover:underline transition-colors"
-                    style={{ color: '#2B3A55' }}
-                  >
-                    Consulter l'historique complet
-                    <ExternalLink className="w-3 h-3" />
-                  </a>
                 </div>
               </div>
             </footer>
@@ -264,7 +294,7 @@ function AppContent() {
             exit={{ opacity: 0, x: 20 }}
             transition={{ duration: 0.3 }}
           >
-            <SearchForm onBack={handleBackToDashboard} onSearch={handleSearchSubmit} showBackButton={true} />
+            <SearchForm onBack={handleBackToDashboard} onSearch={handleSearchSubmit} showBackButton={true} userId={user?.id} />
           </motion.div>
         )}
 
