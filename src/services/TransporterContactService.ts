@@ -9,6 +9,7 @@ export interface TransporterContact {
   status: 'yes' | 'pending' | 'no';
   volume: number;
   comment?: string;
+  isAlternative?: boolean; // Nouveau champ pour identifier les transporteurs alternatifs
   createdAt: Date;
   updatedAt: Date;
 }
