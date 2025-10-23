@@ -87,6 +87,56 @@ const missionDetailsSchema = new mongoose.Schema({
 
 const MissionDetails = mongoose.model('MissionDetails', missionDetailsSchema);
 
+// Schéma pour les transporteurs
+const carrierSchema = new mongoose.Schema({
+  name: { type: String, required: true },
+  siret: { type: String },
+  activity: { type: String },
+  status: { type: String, enum: ['actif', 'ferme_temporairement', 'ferme_definitivement'], default: 'actif' },
+  email: { type: String },
+  phone: { type: String },
+  address: { type: String },
+  openingDate: { type: Date, default: Date.now },
+  contacts: [{
+    name: { type: String },
+    role: { type: String },
+    phone: { type: String },
+    email: { type: String },
+    isPrimary: { type: Boolean, default: false },
+    internalComment: { type: String },
+    unavailabilityPeriods: [{
+      startDate: { type: Date },
+      endDate: { type: Date },
+      reason: { type: String }
+    }],
+    preferredChannels: [{
+      channel: { type: String },
+      preference: { type: String }
+    }],
+    historyNotes: [{
+      date: { type: Date, default: Date.now },
+      note: { type: String },
+      author: { type: String }
+    }]
+  }],
+  routes: [{
+    departure: { type: String },
+    arrival: { type: String },
+    distance: { type: Number },
+    estimatedTime: { type: Number },
+    isActive: { type: Boolean, default: true }
+  }],
+  closurePeriods: [{
+    startDate: { type: Date },
+    endDate: { type: Date },
+    reason: { type: String }
+  }],
+  createdAt: { type: Date, default: Date.now },
+  updatedAt: { type: Date, default: Date.now }
+});
+
+const Carrier = mongoose.model('Carrier', carrierSchema);
+
 // Schéma pour les favoris transporteurs
 const transporterFavoriteSchema = new mongoose.Schema({
   userId: { type: String, required: true },
@@ -618,6 +668,94 @@ app.delete('/api/transporter-routes/:id', async (req, res) => {
     res.json({ message: 'Route supprimée avec succès' });
   } catch (error) {
     console.error('Erreur lors de la suppression de la route:', error);
+    res.status(500).json({ message: 'Erreur serveur' });
+  }
+});
+
+// Routes API pour les transporteurs
+// GET /api/carriers - Récupérer tous les transporteurs
+app.get('/api/carriers', async (req, res) => {
+  try {
+    const carriers = await Carrier.find().sort({ createdAt: -1 });
+    res.json(carriers);
+  } catch (error) {
+    console.error('Erreur lors de la récupération des transporteurs:', error);
+    res.status(500).json({ message: 'Erreur serveur' });
+  }
+});
+
+// GET /api/carriers/:id - Récupérer un transporteur par ID
+app.get('/api/carriers/:id', async (req, res) => {
+  try {
+    const carrier = await Carrier.findById(req.params.id);
+    if (!carrier) {
+      return res.status(404).json({ message: 'Transporteur non trouvé' });
+    }
+    res.json(carrier);
+  } catch (error) {
+    console.error('Erreur lors de la récupération du transporteur:', error);
+    res.status(500).json({ message: 'Erreur serveur' });
+  }
+});
+
+// POST /api/carriers - Créer un nouveau transporteur
+app.post('/api/carriers', async (req, res) => {
+  try {
+    const carrierData = {
+      ...req.body,
+      createdAt: new Date(),
+      updatedAt: new Date()
+    };
+    
+    const carrier = new Carrier(carrierData);
+    await carrier.save();
+    
+    console.log('✅ Nouveau transporteur créé:', carrier.name);
+    res.status(201).json(carrier);
+  } catch (error) {
+    console.error('Erreur lors de la création du transporteur:', error);
+    res.status(500).json({ message: 'Erreur serveur' });
+  }
+});
+
+// PUT /api/carriers/:id - Mettre à jour un transporteur
+app.put('/api/carriers/:id', async (req, res) => {
+  try {
+    const carrierData = {
+      ...req.body,
+      updatedAt: new Date()
+    };
+    
+    const carrier = await Carrier.findByIdAndUpdate(
+      req.params.id, 
+      carrierData, 
+      { new: true, runValidators: true }
+    );
+    
+    if (!carrier) {
+      return res.status(404).json({ message: 'Transporteur non trouvé' });
+    }
+    
+    console.log('✅ Transporteur mis à jour:', carrier.name);
+    res.json(carrier);
+  } catch (error) {
+    console.error('Erreur lors de la mise à jour du transporteur:', error);
+    res.status(500).json({ message: 'Erreur serveur' });
+  }
+});
+
+// DELETE /api/carriers/:id - Supprimer un transporteur
+app.delete('/api/carriers/:id', async (req, res) => {
+  try {
+    const carrier = await Carrier.findByIdAndDelete(req.params.id);
+    if (!carrier) {
+      return res.status(404).json({ message: 'Transporteur non trouvé' });
+    }
+    
+    console.log('✅ Transporteur supprimé:', carrier.name);
+    res.json({ message: 'Transporteur supprimé avec succès' });
+  } catch (error) {
+    console.error('Erreur lors de la suppression du transporteur:', error);
     res.status(500).json({ message: 'Erreur serveur' });
   }
 });

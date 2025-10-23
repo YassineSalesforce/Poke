@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Card, CardContent } from './ui/card';
 import { Button } from './ui/button';
@@ -17,31 +17,18 @@ import {
   Eye,
   Edit,
   ArrowLeft,
-  LogOut
+  LogOut,
+  Loader2
 } from 'lucide-react';
 import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbPage, BreadcrumbSeparator } from './ui/breadcrumb';
 import { CarrierDetailDrawer } from './CarrierDetailDrawer';
 import { useAuth } from '../contexts/AuthContext';
 import { toast } from 'sonner';
+import { CarrierService, Carrier } from '../services/CarrierService';
 
 interface CarrierManagementProps {
   onBackToDashboard: () => void;
   onLogout: () => void;
-}
-
-interface Carrier {
-  id: string;
-  name: string;
-  status: 'active' | 'temporarily-closed' | 'closed';
-  openingDate: string;
-  closingDate?: string;
-  routesCount: number;
-  contactsCount: number;
-  siret?: string;
-  activity?: string;
-  email?: string;
-  phone?: string;
-  address?: string;
 }
 
 export function CarrierManagement({ onBackToDashboard, onLogout }: CarrierManagementProps) {
@@ -49,62 +36,26 @@ export function CarrierManagement({ onBackToDashboard, onLogout }: CarrierManage
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCarrier, setSelectedCarrier] = useState<Carrier | null>(null);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
-  const [carriers, setCarriers] = useState<Carrier[]>([
-    {
-      id: '1',
-      name: 'TRANSARLE',
-      status: 'active',
-      openingDate: '01/02/2024',
-      routesCount: 12,
-      contactsCount: 4,
-      siret: '123 456 789 00012',
-      activity: 'Benne, Tautliner',
-      email: 'contact@transarle.fr',
-      phone: '05 56 12 34 56',
-      address: '12 rue du Port, 33000 Bordeaux',
-    },
-    {
-      id: '2',
-      name: 'CHEVALIER TRANSPORTS',
-      status: 'active',
-      openingDate: '15/05/2022',
-      closingDate: '20/12/2025',
-      routesCount: 8,
-      contactsCount: 3,
-      siret: '987 654 321 00021',
-      activity: 'Benne, Plateau',
-      email: 'info@chevalier-transports.fr',
-      phone: '02 41 98 76 54',
-      address: '45 avenue des Transports, 49000 Angers',
-    },
-    {
-      id: '3',
-      name: '2BMOVED',
-      status: 'temporarily-closed',
-      openingDate: '01/01/2020',
-      closingDate: '01/03/2025',
-      routesCount: 10,
-      contactsCount: 2,
-      siret: '456 789 123 00033',
-      activity: 'Benne, Frigo',
-      email: 'contact@2bmoved.com',
-      phone: '04 72 34 56 78',
-      address: '8 boulevard Logistique, 69002 Lyon',
-    },
-    {
-      id: '4',
-      name: 'LOGISTIQUE EXPRESS',
-      status: 'active',
-      openingDate: '10/03/2023',
-      routesCount: 6,
-      contactsCount: 5,
-      siret: '321 654 987 00044',
-      activity: 'Tautliner, Semi-remorque',
-      email: 'admin@logistique-express.fr',
-      phone: '01 45 67 89 01',
-      address: '33 rue de la Logistique, 75015 Paris',
-    },
-  ]);
+  const [carriers, setCarriers] = useState<Carrier[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  // Charger les transporteurs depuis l'API
+  useEffect(() => {
+    const loadCarriers = async () => {
+      try {
+        setIsLoading(true);
+        const carriersData = await CarrierService.getAllCarriers();
+        setCarriers(carriersData);
+      } catch (error) {
+        console.error('Erreur lors du chargement des transporteurs:', error);
+        toast.error('Erreur lors du chargement des transporteurs');
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    loadCarriers();
+  }, []);
 
   const filteredCarriers = carriers.filter(carrier =>
     carrier.name.toLowerCase().includes(searchQuery.toLowerCase())
@@ -116,47 +67,49 @@ export function CarrierManagement({ onBackToDashboard, onLogout }: CarrierManage
   };
 
   const handleAddCarrier = () => {
-    setSelectedCarrier({
-      id: `new-${Date.now()}`,
-      name: '',
-      status: 'active',
-      openingDate: new Date().toLocaleDateString('fr-FR'),
-      routesCount: 0,
-      contactsCount: 0,
-    });
+    setSelectedCarrier(null); // null pour créer un nouveau transporteur
     setIsDrawerOpen(true);
   };
 
-  const handleSaveCarrier = (updatedCarrier: Carrier) => {
-    setCarriers(prev => {
-      const existing = prev.find(c => c.id === updatedCarrier.id);
-      if (existing) {
-        return prev.map(c => c.id === updatedCarrier.id ? updatedCarrier : c);
+  const handleSaveCarrier = async (carrierData: Carrier) => {
+    try {
+      if (carrierData._id) {
+        // Mise à jour d'un transporteur existant
+        const updatedCarrier = await CarrierService.updateCarrier(carrierData._id, carrierData);
+        setCarriers(prev => prev.map(c => c._id === carrierData._id ? updatedCarrier : c));
+        toast.success('Transporteur mis à jour avec succès');
       } else {
-        return [...prev, updatedCarrier];
+        // Création d'un nouveau transporteur
+        const newCarrier = await CarrierService.createCarrier(carrierData);
+        setCarriers(prev => [newCarrier, ...prev]);
+        toast.success('Transporteur créé avec succès');
       }
-    });
-    
-    toast.success('Transporteur enregistré avec succès', {
-      icon: '✅',
-    });
+      setIsDrawerOpen(false); // Fermer le drawer après sauvegarde
+    } catch (error) {
+      console.error('Erreur lors de la sauvegarde:', error);
+      toast.error('Erreur lors de la sauvegarde du transporteur');
+    }
   };
 
-  const handleDeleteCarrier = (carrierId: string) => {
-    setCarriers(prev => prev.filter(c => c.id !== carrierId));
-    toast.success('Transporteur supprimé', {
-      icon: '🔴',
-    });
+  const handleDeleteCarrier = async (carrierId: string) => {
+    try {
+      await CarrierService.deleteCarrier(carrierId);
+      setCarriers(prev => prev.filter(c => c._id !== carrierId));
+      toast.success('Transporteur supprimé avec succès');
+    } catch (error) {
+      console.error('Erreur lors de la suppression:', error);
+      toast.error('Erreur lors de la suppression du transporteur');
+    }
   };
 
   const getStatusConfig = (status: Carrier['status']) => {
     switch (status) {
-      case 'active':
+      case 'actif':
         return { label: 'Actif', color: 'bg-green-100 text-green-700', icon: '🟢' };
-      case 'temporarily-closed':
+      case 'ferme_temporairement':
         return { label: 'Fermé temporairement', color: 'bg-amber-100 text-amber-700', icon: '🟠' };
-      case 'closed':
-        return { label: 'Fermé', color: 'bg-red-100 text-red-700', icon: '🔴' };
+      case 'ferme_definitivement':
+        return { label: 'Fermé définitivement', color: 'bg-red-100 text-red-700', icon: '🔴' };
       default:
         return { label: 'Inconnu', color: 'bg-gray-100 text-gray-700', icon: '⚪' };
     }
@@ -273,19 +226,19 @@ export function CarrierManagement({ onBackToDashboard, onLogout }: CarrierManage
             <Card className="shadow-sm border-gray-200 flex-1">
               <CardContent className="p-4">
                 <p className="text-sm text-gray-600 mb-1">Actifs</p>
-                <p className="text-2xl text-green-700">{carriers.filter(c => c.status === 'active').length}</p>
+                <p className="text-2xl text-green-700">{carriers.filter(c => c.status === 'actif').length}</p>
               </CardContent>
             </Card>
             <Card className="shadow-sm border-gray-200 flex-1">
               <CardContent className="p-4">
                 <p className="text-sm text-gray-600 mb-1">Fermés temporairement</p>
-                <p className="text-2xl text-amber-700">{carriers.filter(c => c.status === 'temporarily-closed').length}</p>
+                <p className="text-2xl text-amber-700">{carriers.filter(c => c.status === 'ferme_temporairement').length}</p>
               </CardContent>
             </Card>
             <Card className="shadow-sm border-gray-200 flex-1">
               <CardContent className="p-4">
                 <p className="text-sm text-gray-600 mb-1">Routes totales</p>
-                <p className="text-2xl" style={{ color: '#2B3A55' }}>{carriers.reduce((sum, c) => sum + c.routesCount, 0)}</p>
+                <p className="text-2xl" style={{ color: '#2B3A55' }}>{carriers.reduce((sum, c) => sum + c.routes.length, 0)}</p>
               </CardContent>
             </Card>
           </div>
@@ -293,7 +246,13 @@ export function CarrierManagement({ onBackToDashboard, onLogout }: CarrierManage
           {/* Main Table */}
           <Card className="shadow-md border-gray-200">
             <CardContent className="p-6">
-              <div className="space-y-2">
+              {isLoading ? (
+                <div className="flex items-center justify-center py-12">
+                  <Loader2 className="w-8 h-8 animate-spin text-gray-400" />
+                  <span className="ml-2 text-gray-600">Chargement des transporteurs...</span>
+                </div>
+              ) : (
+                <div className="space-y-2">
                 {/* Table Header */}
                 <div className="grid grid-cols-[2fr_1.5fr_1fr_1fr_1.5fr_1fr_1.5fr] gap-4 px-4 py-3 bg-gray-50 rounded-lg border border-gray-200">
                   <div className="text-sm text-gray-600">Transporteur</div>
@@ -317,7 +276,7 @@ export function CarrierManagement({ onBackToDashboard, onLogout }: CarrierManage
                       
                       return (
                         <motion.div
-                          key={carrier.id}
+                          key={carrier._id}
                           layout
                           initial={{ opacity: 0, y: 20 }}
                           animate={{ opacity: 1, y: 0 }}
@@ -340,22 +299,27 @@ export function CarrierManagement({ onBackToDashboard, onLogout }: CarrierManage
 
                           {/* Opening Date */}
                           <div className="flex items-center">
-                            <span className="text-sm text-gray-600">{carrier.openingDate}</span>
+                            <span className="text-sm text-gray-600">{carrier.openingDate ? new Date(carrier.openingDate).toLocaleDateString('fr-FR') : '–'}</span>
                           </div>
 
                           {/* Closing Date */}
                           <div className="flex items-center">
-                            <span className="text-sm text-gray-600">{carrier.closingDate || '–'}</span>
+                            <span className="text-sm text-gray-600">
+                              {carrier.closurePeriods && carrier.closurePeriods.length > 0 
+                                ? new Date(carrier.closurePeriods[carrier.closurePeriods.length - 1].endDate).toLocaleDateString('fr-FR')
+                                : '–'
+                              }
+                            </span>
                           </div>
 
                           {/* Routes Count */}
                           <div className="flex items-center">
-                            <span className="text-sm text-gray-600">{carrier.routesCount}</span>
+                            <span className="text-sm text-gray-600">{carrier.routes.length}</span>
                           </div>
 
                           {/* Contacts Count */}
                           <div className="flex items-center">
-                            <span className="text-sm text-gray-600">{carrier.contactsCount}</span>
+                            <span className="text-sm text-gray-600">{carrier.contacts.length}</span>
                           </div>
 
                           {/* Actions */}
@@ -385,7 +349,8 @@ export function CarrierManagement({ onBackToDashboard, onLogout }: CarrierManage
                     })
                   )}
                 </AnimatePresence>
-              </div>
+                </div>
+              )}
             </CardContent>
           </Card>
         </div>

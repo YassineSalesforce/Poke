@@ -456,16 +456,13 @@ export function CarrierReturnsEntry({ onBack, onBackToDashboard, onNext, searchC
           email: details.email || '',
         };
 
-        // Sauvegarder en base de données
         await MissionDetailsService.saveMissionDetails(missionData);
         
-        // Mettre à jour l'état local
         setCarrierMissionDetails(prev => ({
           ...prev,
           [selectedCarrier.id]: details
         }));
         
-        // Marquer le transporteur comme sauvegardé
         setSavedCarriers(prev => new Set([...prev, selectedCarrier.id]));
         
         setShowMissionDetailsModal(false);
@@ -474,7 +471,6 @@ export function CarrierReturnsEntry({ onBack, onBackToDashboard, onNext, searchC
         console.log('Mission details saved successfully');
       } catch (error) {
         console.error('Error saving mission details:', error);
-        // TODO: Afficher une notification d'erreur à l'utilisateur
       }
     }
   };

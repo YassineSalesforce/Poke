@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import {
   Drawer,
@@ -33,47 +33,13 @@ import {
   AlertTriangle
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { Carrier as CarrierService, Contact as ServiceContact, RouteData as ServiceRouteData, ClosurePeriod as ServiceClosurePeriod } from '../services/CarrierService';
 
-interface Contact {
-  id: string;
-  firstName: string;
-  lastName: string;
-  role: string;
-  phone: string;
-  email: string;
-}
-
-interface RouteData {
-  id: string;
-  origin: string;
-  destination: string;
-  vehicleType: string;
-  status: 'active' | 'temporarily-closed' | 'closed';
-  closurePeriods: ClosurePeriod[];
-}
-
-interface ClosurePeriod {
-  id: string;
-  startDate: string;
-  endDate: string;
-  reason: string;
-  active: boolean;
-}
-
-interface Carrier {
-  id: string;
-  name: string;
-  status: 'active' | 'temporarily-closed' | 'closed';
-  openingDate: string;
-  closingDate?: string;
-  routesCount: number;
-  contactsCount: number;
-  siret?: string;
-  activity?: string;
-  email?: string;
-  phone?: string;
-  address?: string;
-}
+// Utiliser les interfaces du service directement
+type Contact = ServiceContact;
+type RouteData = ServiceRouteData;
+type ClosurePeriod = ServiceClosurePeriod;
+type Carrier = CarrierService;
 
 interface CarrierDetailDrawerProps {
   carrier: Carrier | null;
@@ -106,29 +72,64 @@ export function CarrierDetailDrawer({
 
   useEffect(() => {
     if (carrier) {
+      // Transporteur existant - charger ses données
       setFormData(carrier);
+      setContacts(carrier.contacts || []);
       
-      // Load mock contacts
-      if (carrier.id === '1') {
-        setContacts([
-          { id: '1', firstName: 'Marc', lastName: 'Dupont', role: 'Gérant', phone: '06 45 33 12 09', email: 'marc@transarle.fr' },
-          { id: '2', firstName: 'Claire', lastName: 'Lefèvre', role: 'Exploitante', phone: '06 22 45 76 09', email: 'claire@transarle.fr' },
-          { id: '3', firstName: 'Nicolas', lastName: 'Lambert', role: 'Administratif', phone: '05 56 92 74 10', email: 'admin@transarle.fr' },
+      // Si le transporteur n'a pas de routes, utiliser les routes par défaut
+      if (!carrier.routes || carrier.routes.length === 0) {
+        setRoutes([
+          { 
+            id: '1', 
+            origin: 'FR33 – Gironde', 
+            destination: 'ES13 – Madrid', 
+            vehicleType: 'Benne', 
+            status: 'actif',
+            closurePeriods: [
+              { id: '1', startDate: '01/08/2025', endDate: '31/08/2025', reason: 'Maintenance infrastructure', active: true }
+            ]
+          },
+          { 
+            id: '2', 
+            origin: 'FR49 – Maine-et-Loire', 
+            destination: 'FR69 – Rhône', 
+            vehicleType: 'Tautliner', 
+            status: 'ferme_temporairement',
+            closurePeriods: [
+              { id: '1', startDate: '15/01/2025', endDate: '28/02/2025', reason: 'Travaux routiers', active: true }
+            ]
+          },
         ]);
       } else {
-        setContacts([
-          { id: '1', firstName: 'Jean', lastName: 'Martin', role: 'Gérant', phone: '06 12 34 56 78', email: 'contact@carrier.fr' },
-        ]);
+        setRoutes(carrier.routes);
       }
-
-      // Load mock routes
+      
+      setClosurePeriods(carrier.closurePeriods || []);
+    } else {
+      // Nouveau transporteur - vider le formulaire
+      setFormData({
+        name: '',
+        siret: '',
+        activity: '',
+        status: 'actif',
+        email: '',
+        phone: '',
+        address: '',
+        openingDate: new Date(),
+        contacts: [],
+        routes: [],
+        closurePeriods: []
+      });
+      setContacts([]);
+      
+      // Load mock routes par défaut
       setRoutes([
         { 
           id: '1', 
           origin: 'FR33 – Gironde', 
           destination: 'ES13 – Madrid', 
           vehicleType: 'Benne', 
-          status: 'active',
+          status: 'actif',
           closurePeriods: [
             { id: '1', startDate: '01/08/2025', endDate: '31/08/2025', reason: 'Maintenance infrastructure', active: true }
           ]
@@ -138,42 +139,47 @@ export function CarrierDetailDrawer({
           origin: 'FR49 – Maine-et-Loire', 
           destination: 'FR69 – Rhône', 
           vehicleType: 'Tautliner', 
-          status: 'temporarily-closed',
+          status: 'ferme_temporairement',
           closurePeriods: [
             { id: '1', startDate: '15/01/2025', endDate: '28/02/2025', reason: 'Travaux routiers', active: true }
           ]
         },
       ]);
-
-      // Load mock closure periods
-      setClosurePeriods([
-        { id: '1', startDate: '15/07/2025', endDate: '30/08/2025', reason: 'Congés d\'été', active: true },
-        { id: '2', startDate: '20/12/2025', endDate: '05/01/2026', reason: 'Fêtes de fin d\'année', active: true },
-      ]);
+      
+      setClosurePeriods([]);
     }
   }, [carrier]);
 
   const handleSave = () => {
     if (!formData) return;
-    onSave(formData);
+    
+    // Préparer les données complètes du transporteur
+    const carrierToSave = {
+      ...formData,
+      contacts: contacts,
+      routes: routes,
+      closurePeriods: closurePeriods,
+    };
+    
+    onSave(carrierToSave);
     onClose();
   };
 
   const handleDelete = () => {
     if (!carrier) return;
-    onDelete(carrier.id);
+    onDelete(carrier._id || '');
     setShowDeleteDialog(false);
     onClose();
   };
 
   const handleAddContact = () => {
     setEditingContact({
-      id: `contact-${Date.now()}`,
-      firstName: '',
-      lastName: '',
+      name: '',
       role: 'Exploitant',
       phone: '',
       email: '',
+      isPrimary: false,
+      internalComment: ''
     });
     setShowContactDialog(true);
   };
@@ -181,30 +187,23 @@ export function CarrierDetailDrawer({
   const handleSaveContact = () => {
     if (!editingContact) return;
     
-    const existing = contacts.find(c => c.id === editingContact.id);
-    if (existing) {
-      setContacts(prev => prev.map(c => c.id === editingContact.id ? editingContact : c));
-    } else {
-      setContacts(prev => [...prev, editingContact]);
-    }
+    setContacts(prev => [...prev, editingContact]);
     
     setShowContactDialog(false);
     setEditingContact(null);
     toast.success('Contact enregistré', { icon: '✅' });
   };
 
-  const handleDeleteContact = (contactId: string) => {
-    setContacts(prev => prev.filter(c => c.id !== contactId));
+  const handleDeleteContact = (index: number) => {
+    setContacts(prev => prev.filter((_, i) => i !== index));
     toast.success('Contact supprimé', { icon: '🗑️' });
   };
 
   const handleAddClosurePeriod = () => {
     setNewClosurePeriod({
-      id: `closure-${Date.now()}`,
-      startDate: '',
-      endDate: '',
-      reason: '',
-      active: true,
+      startDate: new Date(),
+      endDate: new Date(),
+      reason: ''
     });
     setShowClosureDialog(true);
   };
@@ -215,39 +214,46 @@ export function CarrierDetailDrawer({
       return;
     }
 
+    if (!newClosurePeriod.reason || newClosurePeriod.reason.trim() === '') {
+      toast.error('Veuillez remplir le motif');
+      return;
+    }
+
     setClosurePeriods(prev => [...prev, newClosurePeriod as ClosurePeriod]);
     setShowClosureDialog(false);
     setNewClosurePeriod({});
     toast.success('Période ajoutée', { icon: '🟢' });
   };
 
-  const handleDeleteClosurePeriod = (periodId: string) => {
-    setClosurePeriods(prev => prev.filter(p => p.id !== periodId));
+  const handleDeleteClosurePeriod = (index: number) => {
+    setClosurePeriods(prev => prev.filter((_, i) => i !== index));
     toast.success('Période supprimée', { icon: '🗑️' });
   };
 
   const handleMarkTemporarilyClosed = () => {
     if (!formData) return;
     
-    setFormData({ ...formData, status: 'temporarily-closed' });
+    setFormData({ ...formData, status: 'ferme_temporairement' });
     toast.success('Statut modifié', {
       description: 'Transporteur marqué comme fermé temporairement',
       icon: '🟠',
     });
   };
 
-  if (!carrier || !formData) return null;
+  if (!formData) return null;
 
-  const isNewCarrier = carrier.id.startsWith('new-');
+  const isNewCarrier = !carrier || !carrier._id;
 
   const getStatusConfig = (status: Carrier['status']) => {
     switch (status) {
-      case 'active':
+      case 'actif':
         return { label: 'Actif', color: 'bg-green-100 text-green-700', icon: '🟢' };
-      case 'temporarily-closed':
+      case 'ferme_temporairement':
         return { label: 'Fermé temporairement', color: 'bg-amber-100 text-amber-700', icon: '🟠' };
-      case 'closed':
-        return { label: 'Fermé', color: 'bg-red-100 text-red-700', icon: '🔴' };
+      case 'ferme_definitivement':
+        return { label: 'Fermé définitivement', color: 'bg-red-100 text-red-700', icon: '🔴' };
+      default:
+        return { label: 'Inconnu', color: 'bg-gray-100 text-gray-700', icon: '⚪' };
     }
   };
 
@@ -315,13 +321,18 @@ export function CarrierDetailDrawer({
 
                 <div className="space-y-2">
                   <Label htmlFor="activity">Type d'activité</Label>
-                  <Input
-                    id="activity"
-                    value={formData.activity || ''}
-                    onChange={(e) => setFormData({ ...formData, activity: e.target.value })}
-                    placeholder="Benne, Tautliner, Plateau..."
-                    className="rounded-lg"
-                  />
+                  <Select value={formData.activity || ''} onValueChange={(value) => setFormData({ ...formData, activity: value })}>
+                    <SelectTrigger id="activity" className="rounded-lg">
+                      <SelectValue placeholder="Sélectionner un type de véhicule" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Benne">🚛 Benne</SelectItem>
+                      <SelectItem value="Tautliner">🚚 Tautliner</SelectItem>
+                      <SelectItem value="Plateau">📦 Plateau</SelectItem>
+                      <SelectItem value="Frigo">❄️ Frigo</SelectItem>
+                      <SelectItem value="Semi-remorque">🚛 Semi-remorque</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
 
                 <div className="space-y-2">
@@ -331,9 +342,9 @@ export function CarrierDetailDrawer({
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="active">🟢 Actif</SelectItem>
-                      <SelectItem value="temporarily-closed">🟠 Fermé temporairement</SelectItem>
-                      <SelectItem value="closed">🔴 Fermé définitivement</SelectItem>
+                      <SelectItem value="actif">🟢 Actif</SelectItem>
+                      <SelectItem value="ferme_temporairement">🟠 Fermé temporairement</SelectItem>
+                      <SelectItem value="ferme_definitivement">🔴 Fermé définitivement</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -376,9 +387,9 @@ export function CarrierDetailDrawer({
                   <Label htmlFor="opening-date">Date d'ouverture globale</Label>
                   <Input
                     id="opening-date"
-                    value={formData.openingDate}
-                    onChange={(e) => setFormData({ ...formData, openingDate: e.target.value })}
-                    placeholder="01/01/2024"
+                    type="date"
+                    value={formData.openingDate ? new Date(formData.openingDate).toISOString().split('T')[0] : ''}
+                    onChange={(e) => setFormData({ ...formData, openingDate: new Date(e.target.value) })}
                     className="rounded-lg"
                   />
                 </div>
@@ -417,24 +428,34 @@ export function CarrierDetailDrawer({
                         </tr>
                       </thead>
                       <tbody>
-                        {closurePeriods.map((period) => (
-                          <tr key={period.id} className="border-t border-gray-200">
-                            <td className="px-3 py-2">{period.startDate}</td>
-                            <td className="px-3 py-2">{period.endDate}</td>
-                            <td className="px-3 py-2">{period.reason}</td>
-                            <td className="px-3 py-2">{period.active ? '✅' : '⏸️'}</td>
-                            <td className="px-3 py-2 text-right">
-                              <Button
-                                onClick={() => handleDeleteClosurePeriod(period.id)}
-                                variant="ghost"
-                                size="sm"
-                                className="h-7 w-7 p-0 text-red-600 hover:bg-red-50"
-                              >
-                                <Trash2 className="w-3 h-3" />
-                              </Button>
-                            </td>
-                          </tr>
-                        ))}
+                        {closurePeriods.map((period, index) => {
+                          const startDate = period.startDate instanceof Date 
+                            ? period.startDate 
+                            : period.startDate ? new Date(period.startDate) : null;
+                          
+                          const endDate = period.endDate instanceof Date 
+                            ? period.endDate 
+                            : period.endDate ? new Date(period.endDate) : null;
+                          
+                          return (
+                            <tr key={index} className="border-t border-gray-200">
+                              <td className="px-3 py-2">{startDate ? startDate.toLocaleDateString('fr-FR') : '–'}</td>
+                              <td className="px-3 py-2">{endDate ? endDate.toLocaleDateString('fr-FR') : '–'}</td>
+                              <td className="px-3 py-2">{period.reason || '–'}</td>
+                              <td className="px-3 py-2">✅</td>
+                              <td className="px-3 py-2 text-right">
+                                <Button
+                                  onClick={() => handleDeleteClosurePeriod(index)}
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-7 w-7 p-0 text-red-600 hover:bg-red-50"
+                                >
+                                  <Trash2 className="w-3 h-3" />
+                                </Button>
+                              </td>
+                            </tr>
+                          );
+                        })}
                       </tbody>
                     </table>
                   </div>
@@ -472,7 +493,6 @@ export function CarrierDetailDrawer({
                     <thead className="bg-gray-50">
                       <tr>
                         <th className="text-left px-3 py-2 text-gray-600">Nom</th>
-                        <th className="text-left px-3 py-2 text-gray-600">Prénom</th>
                         <th className="text-left px-3 py-2 text-gray-600">Rôle</th>
                         <th className="text-left px-3 py-2 text-gray-600">Téléphone</th>
                         <th className="text-left px-3 py-2 text-gray-600">Email</th>
@@ -480,15 +500,14 @@ export function CarrierDetailDrawer({
                       </tr>
                     </thead>
                     <tbody>
-                      {contacts.map((contact) => (
-                        <tr key={contact.id} className="border-t border-gray-200">
-                          <td className="px-3 py-2">{contact.lastName}</td>
-                          <td className="px-3 py-2">{contact.firstName}</td>
+                      {contacts.map((contact, index) => (
+                        <tr key={index} className="border-t border-gray-200">
+                          <td className="px-3 py-2">{contact.name && contact.name.trim() ? contact.name : '–'}</td>
                           <td className="px-3 py-2">
-                            <Badge variant="outline" className="text-xs">{contact.role}</Badge>
+                            <Badge variant="outline" className="text-xs">{contact.role || '–'}</Badge>
                           </td>
-                          <td className="px-3 py-2">{contact.phone}</td>
-                          <td className="px-3 py-2">{contact.email}</td>
+                          <td className="px-3 py-2">{contact.phone || '–'}</td>
+                          <td className="px-3 py-2">{contact.email || '–'}</td>
                           <td className="px-3 py-2 text-right">
                             <div className="flex items-center justify-end gap-1">
                               <Button
@@ -503,7 +522,7 @@ export function CarrierDetailDrawer({
                                 <Edit className="w-3 h-3" />
                               </Button>
                               <Button
-                                onClick={() => handleDeleteContact(contact.id)}
+                                onClick={() => handleDeleteContact(index)}
                                 variant="ghost"
                                 size="sm"
                                 className="h-7 w-7 p-0 text-red-600 hover:bg-red-50"
@@ -545,20 +564,36 @@ export function CarrierDetailDrawer({
                 </p>
               ) : (
                 <div className="space-y-3">
-                  {routes.map((route) => {
-                    const routeStatus = getStatusConfig(route.status);
+                  {routes.map((route, index) => {
+                    // Gérer les deux structures de routes (ancienne et nouvelle)
+                    const isOldStructure = route.departure && route.arrival;
+                    const routeStatus = isOldStructure 
+                      ? (route.isActive 
+                          ? { label: 'Actif', color: 'bg-green-100 text-green-700', icon: '🟢' }
+                          : { label: 'Inactif', color: 'bg-gray-100 text-gray-700', icon: '⚪' })
+                      : getStatusConfig(route.status);
                     
                     return (
-                      <div key={route.id} className="border border-gray-200 rounded-lg p-4 hover:bg-gray-50 transition-all">
+                      <div key={route.id || route._id || index} className="border border-gray-200 rounded-lg p-4 hover:bg-gray-50 transition-all">
                         <div className="flex items-start justify-between mb-3">
                           <div>
                             <div className="flex items-center gap-2 mb-1">
-                              <span className="text-sm">{route.origin} → {route.destination}</span>
+                              <span className="text-sm">
+                                {isOldStructure 
+                                  ? `${route.departure} → ${route.arrival}`
+                                  : `${route.origin} → ${route.destination}`
+                                }
+                              </span>
                               <Badge className={`${routeStatus.color} text-xs`}>
                                 {routeStatus.icon} {routeStatus.label}
                               </Badge>
                             </div>
-                            <p className="text-xs text-gray-500">Type: {route.vehicleType} • {route.closurePeriods.length} période(s) de fermeture</p>
+                            <p className="text-xs text-gray-500">
+                              {isOldStructure 
+                                ? `Distance: ${route.distance || 'N/A'} km • Temps estimé: ${route.estimatedTime || 'N/A'}h`
+                                : `Type: ${route.vehicleType} • ${route.closurePeriods?.length || 0} période(s) de fermeture`
+                              }
+                            </p>
                           </div>
                           <div className="flex items-center gap-1">
                             <Button variant="ghost" size="sm" className="h-7 px-2 text-xs hover:bg-blue-50">
@@ -572,15 +607,20 @@ export function CarrierDetailDrawer({
                           </div>
                         </div>
                         
-                        {route.closurePeriods.length > 0 && (
+                        {!isOldStructure && route.closurePeriods && route.closurePeriods.length > 0 && (
                           <div className="bg-amber-50 rounded-lg p-3 border border-amber-200">
                             <p className="text-xs text-amber-900 mb-2">Périodes de fermeture spécifiques:</p>
-                            {route.closurePeriods.map((period) => (
-                              <div key={period.id} className="text-xs text-amber-800 flex items-center gap-2">
-                                <Calendar className="w-3 h-3" />
-                                <span>{period.startDate} → {period.endDate} – {period.reason}</span>
-                              </div>
-                            ))}
+                            {route.closurePeriods.map((period) => {
+                              const startDate = typeof period.startDate === 'string' ? period.startDate : period.startDate instanceof Date ? period.startDate.toLocaleDateString('fr-FR') : '–';
+                              const endDate = typeof period.endDate === 'string' ? period.endDate : period.endDate instanceof Date ? period.endDate.toLocaleDateString('fr-FR') : '–';
+                              
+                              return (
+                                <div key={period.id} className="text-xs text-amber-800 flex items-center gap-2">
+                                  <Calendar className="w-3 h-3" />
+                                  <span>{startDate} → {endDate} – {period.reason}</span>
+                                </div>
+                              );
+                            })}
                           </div>
                         )}
                       </div>
@@ -596,7 +636,7 @@ export function CarrierDetailDrawer({
               <div className="grid grid-cols-2 gap-3 text-sm">
                 <div>
                   <p className="text-gray-600">Routes actives</p>
-                  <p className="text-green-700">{routes.filter(r => r.status === 'active').length}</p>
+                  <p className="text-green-700">{routes.filter(r => r.isActive).length}</p>
                 </div>
                 <div>
                   <p className="text-gray-600">Nombre de contacts</p>
@@ -604,7 +644,14 @@ export function CarrierDetailDrawer({
                 </div>
                 <div>
                   <p className="text-gray-600">Prochaine fermeture</p>
-                  <p className="text-amber-700">{closurePeriods[0]?.startDate || 'Aucune'}</p>
+                  <p className="text-amber-700">
+                    {closurePeriods[0]?.startDate 
+                      ? (closurePeriods[0].startDate instanceof Date 
+                          ? closurePeriods[0].startDate.toLocaleDateString('fr-FR')
+                          : new Date(closurePeriods[0].startDate).toLocaleDateString('fr-FR'))
+                      : 'Aucune'
+                    }
+                  </p>
                 </div>
                 <div>
                   <p className="text-gray-600">Statut global</p>
@@ -614,7 +661,7 @@ export function CarrierDetailDrawer({
                 </div>
               </div>
               
-              {formData.status === 'active' && (
+              {formData.status === 'actif' && (
                 <Button
                   onClick={handleMarkTemporarilyClosed}
                   variant="outline"
@@ -702,34 +749,24 @@ export function CarrierDetailDrawer({
       <Dialog open={showContactDialog} onOpenChange={setShowContactDialog}>
         <DialogContent className="sm:max-w-lg">
           <DialogHeader>
-            <DialogTitle>{editingContact?.firstName ? 'Modifier le contact' : 'Ajouter un contact'}</DialogTitle>
+            <DialogTitle>{editingContact?.name && editingContact.name.trim() ? 'Modifier le contact' : 'Ajouter un contact'}</DialogTitle>
             <DialogDescription>
               Renseignez les informations du contact
             </DialogDescription>
           </DialogHeader>
           {editingContact && (
             <div className="space-y-4 py-4">
-              <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-4">
                 <div className="space-y-2">
-                  <Label>Nom</Label>
+                  <Label>Nom complet</Label>
                   <Input
-                    value={editingContact.lastName}
-                    onChange={(e) => setEditingContact({ ...editingContact, lastName: e.target.value })}
-                    placeholder="Dupont"
+                    value={editingContact.name}
+                    onChange={(e) => setEditingContact({ ...editingContact, name: e.target.value })}
+                    placeholder="Jean Dupont"
                     className="rounded-lg"
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label>Prénom</Label>
-                  <Input
-                    value={editingContact.firstName}
-                    onChange={(e) => setEditingContact({ ...editingContact, firstName: e.target.value })}
-                    placeholder="Marc"
-                    className="rounded-lg"
-                  />
-                </div>
-              </div>
-              <div className="space-y-2">
                 <Label>Rôle</Label>
                 <Select value={editingContact.role} onValueChange={(value) => setEditingContact({ ...editingContact, role: value })}>
                   <SelectTrigger className="rounded-lg">
@@ -763,6 +800,7 @@ export function CarrierDetailDrawer({
                   className="rounded-lg"
                 />
               </div>
+            </div>
             </div>
           )}
           <DialogFooter>
@@ -799,8 +837,8 @@ export function CarrierDetailDrawer({
                 <Label>Date de début</Label>
                 <Input
                   type="date"
-                  value={newClosurePeriod.startDate}
-                  onChange={(e) => setNewClosurePeriod({ ...newClosurePeriod, startDate: e.target.value })}
+                  value={newClosurePeriod.startDate ? new Date(newClosurePeriod.startDate).toISOString().split('T')[0] : ''}
+                  onChange={(e) => setNewClosurePeriod({ ...newClosurePeriod, startDate: e.target.value ? new Date(e.target.value) : undefined })}
                   className="rounded-lg"
                 />
               </div>
@@ -808,8 +846,8 @@ export function CarrierDetailDrawer({
                 <Label>Date de fin</Label>
                 <Input
                   type="date"
-                  value={newClosurePeriod.endDate}
-                  onChange={(e) => setNewClosurePeriod({ ...newClosurePeriod, endDate: e.target.value })}
+                  value={newClosurePeriod.endDate ? new Date(newClosurePeriod.endDate).toISOString().split('T')[0] : ''}
+                  onChange={(e) => setNewClosurePeriod({ ...newClosurePeriod, endDate: e.target.value ? new Date(e.target.value) : undefined })}
                   className="rounded-lg"
                 />
               </div>
