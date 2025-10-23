@@ -1,4 +1,4 @@
-import { Search, Plus, Route, ChevronDown, LogOut } from 'lucide-react';
+import { Search, Plus, Route, ChevronDown, LogOut, Users } from 'lucide-react';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Avatar, AvatarFallback, AvatarImage } from './ui/avatar';
@@ -13,11 +13,12 @@ import { useAuth } from '../contexts/AuthContext';
 interface HeaderProps {
   onNewSearch: () => void;
   onManageRoutes?: () => void;
+  onManageCarriers?: () => void;
   onDashboard?: () => void;
   onLogout: () => void;
 }
 
-export function Header({ onNewSearch, onManageRoutes, onDashboard, onLogout }: HeaderProps) {
+export function Header({ onNewSearch, onManageRoutes, onManageCarriers, onDashboard, onLogout }: HeaderProps) {
   const { user } = useAuth();
 
   const handleLogout = () => {
@@ -70,7 +71,7 @@ export function Header({ onNewSearch, onManageRoutes, onDashboard, onLogout }: H
             Nouvelle recherche
           </Button>
 
-          {onManageRoutes && (
+          {(onManageRoutes || onManageCarriers) && (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button 
@@ -82,10 +83,18 @@ export function Header({ onNewSearch, onManageRoutes, onDashboard, onLogout }: H
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-56">
-                <DropdownMenuItem onClick={onManageRoutes} className="cursor-pointer">
-                  <Route className="w-4 h-4 mr-2" />
-                  Gestion des routes
-                </DropdownMenuItem>
+                {onManageCarriers && (
+                  <DropdownMenuItem onClick={onManageCarriers} className="cursor-pointer">
+                    <Users className="w-4 h-4 mr-2" />
+                    Gestion des transporteurs
+                  </DropdownMenuItem>
+                )}
+                {onManageRoutes && (
+                  <DropdownMenuItem onClick={onManageRoutes} className="cursor-pointer">
+                    <Route className="w-4 h-4 mr-2" />
+                    Gestion des routes
+                  </DropdownMenuItem>
+                )}
               </DropdownMenuContent>
             </DropdownMenu>
           )}

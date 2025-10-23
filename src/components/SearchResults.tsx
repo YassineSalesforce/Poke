@@ -19,6 +19,10 @@ import { MissionService, AlternativeTransporter } from '../services/MissionServi
 import { TransporterContactService } from '../services/TransporterContactService';
 import { TransporterRouteService } from '../services/TransporterRouteService';
 import { TransporterRefusalService } from '../services/TransporterRefusalService';
+import { Avatar, AvatarFallback, AvatarImage } from './ui/avatar';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from './ui/dropdown-menu';
+import { LogOut } from 'lucide-react';
+import { useAuth } from '../contexts/AuthContext';
 
 interface SearchResultsProps {
   onBack: () => void;
@@ -62,6 +66,8 @@ interface AlternativeCarrier {
 
 export function SearchResults({ onBack, onBackToDashboard, onNext, onCreateRoute, searchCriteria, onLogout }: SearchResultsProps) {
   console.log('🔍 SearchResults reçu searchCriteria:', searchCriteria);
+  
+  const { user } = useAuth();
   
   const extractCityAndPostalCode = (fullAddress: string) => {
     // Si pas d'adresse, retourner une valeur par défaut

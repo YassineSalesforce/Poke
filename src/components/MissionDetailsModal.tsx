@@ -6,7 +6,7 @@ import { Label } from './ui/label';
 import { Textarea } from './ui/textarea';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from './ui/dialog';
-import { Calendar, Package, Euro, Clock, MapPin, Save } from 'lucide-react';
+import { Calendar, Package, Euro, Clock, MapPin, Save, Phone, Mail } from 'lucide-react';
 
 interface MissionDetailsModalProps {
   isOpen: boolean;
@@ -26,6 +26,8 @@ export interface MissionDetails {
   deliveryTime: string;
   estimatedPrice: number;
   notes?: string;
+  phone: string;
+  email: string;
 }
 
 export function MissionDetailsModal({ 
@@ -47,6 +49,8 @@ export function MissionDetailsModal({
     deliveryTime: initialData?.deliveryTime || '18:00',
     estimatedPrice: initialData?.estimatedPrice || 0,
     notes: initialData?.notes || '',
+    phone: initialData?.phone || '',
+    email: initialData?.email || '',
   });
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -91,24 +95,43 @@ export function MissionDetailsModal({
             </CardContent>
           </Card>
 
-          {/* Merchandise */}
-          <div className="space-y-2">
-            <Label htmlFor="merchandise" className="text-sm font-medium flex items-center gap-2">
-              <Package className="w-4 h-4" />
-              Type de marchandise *
-            </Label>
-            <Input
-              id="merchandise"
-              value={details.merchandise}
-              onChange={(e) => handleInputChange('merchandise', e.target.value)}
-              placeholder="Ex: Granulats, Ciment, Matériaux de construction..."
-              className="rounded-lg"
-              required
-            />
+          {/* Merchandise and Price */}
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="merchandise" className="text-sm font-medium flex items-center gap-2">
+                <Package className="w-4 h-4" />
+                Type de marchandise *
+              </Label>
+              <Input
+                id="merchandise"
+                value={details.merchandise}
+                onChange={(e) => handleInputChange('merchandise', e.target.value)}
+                placeholder="Ex: Granulats, Ciment..."
+                className="rounded-lg"
+                required
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="estimatedPrice" className="text-sm font-medium flex items-center gap-2">
+                <Euro className="w-4 h-4" />
+                Tarif estimé (€) *
+              </Label>
+              <Input
+                id="estimatedPrice"
+                type="number"
+                value={details.estimatedPrice}
+                onChange={(e) => handleInputChange('estimatedPrice', parseFloat(e.target.value) || 0)}
+                placeholder="0.00"
+                className="rounded-lg"
+                min="0"
+                step="0.01"
+                required
+              />
+            </div>
           </div>
 
           {/* Loading Details */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="loadingDate" className="text-sm font-medium flex items-center gap-2">
                 <Calendar className="w-4 h-4" />
@@ -140,7 +163,7 @@ export function MissionDetailsModal({
           </div>
 
           {/* Delivery Details */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="deliveryDate" className="text-sm font-medium flex items-center gap-2">
                 <Calendar className="w-4 h-4" />
@@ -171,23 +194,36 @@ export function MissionDetailsModal({
             </div>
           </div>
 
-          {/* Price */}
-          <div className="space-y-2">
-            <Label htmlFor="estimatedPrice" className="text-sm font-medium flex items-center gap-2">
-              <Euro className="w-4 h-4" />
-              Tarif estimé (€) *
-            </Label>
-            <Input
-              id="estimatedPrice"
-              type="number"
-              value={details.estimatedPrice}
-              onChange={(e) => handleInputChange('estimatedPrice', parseFloat(e.target.value) || 0)}
-              placeholder="0.00"
-              className="rounded-lg"
-              min="0"
-              step="0.01"
-              required
-            />
+          {/* Contact Information */}
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="phone" className="text-sm font-medium flex items-center gap-2">
+                <Phone className="w-4 h-4" />
+                Numéro de téléphone
+              </Label>
+              <Input
+                id="phone"
+                type="tel"
+                value={details.phone}
+                onChange={(e) => handleInputChange('phone', e.target.value)}
+                placeholder="Ex: +33 6 12 34 56 78"
+                className="rounded-lg"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="email" className="text-sm font-medium flex items-center gap-2">
+                <Mail className="w-4 h-4" />
+                Email
+              </Label>
+              <Input
+                id="email"
+                type="email"
+                value={details.email}
+                onChange={(e) => handleInputChange('email', e.target.value)}
+                placeholder="Ex: contact@transporteur.fr"
+                className="rounded-lg"
+              />
+            </div>
           </div>
 
           {/* Notes */}

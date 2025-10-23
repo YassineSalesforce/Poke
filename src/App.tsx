@@ -14,13 +14,14 @@ import { SearchResults } from './components/SearchResults';
 import { CarrierReturnsEntry } from './components/CarrierReturnsEntry';
 import { MissionOrders } from './components/MissionOrders';
 import { RouteManagement } from './components/RouteManagement';
+import { CarrierManagement } from './components/CarrierManagement';
 import { ProcessOverview } from './components/ProcessOverview';
 import { TransporterContactService } from './services/TransporterContactService';
 import { ExternalLink, Route, X } from 'lucide-react';
 import { Toaster } from './components/ui/sonner';
 
 
-type Screen = 'landing' | 'dashboard' | 'search-form' | 'search-results' | 'carrier-returns' | 'mission-orders' | 'route-management' | 'process-overview';
+type Screen = 'landing' | 'dashboard' | 'search-form' | 'search-results' | 'carrier-returns' | 'mission-orders' | 'route-management' | 'carrier-management' | 'process-overview';
 
 function AppContent() {
   const { user, isAuthenticated, isLoading, logout } = useAuth();
@@ -143,6 +144,10 @@ function AppContent() {
     setCurrentScreen('route-management');
   };
 
+  const handleGoToCarrierManagement = () => {
+    setCurrentScreen('carrier-management');
+  };
+
   const handleGoToProcessOverview = () => {
     setCurrentScreen('process-overview');
   };
@@ -252,7 +257,7 @@ function AppContent() {
             transition={{ duration: 0.3 }}
             className="flex flex-col min-h-screen"
           >
-            <Header onNewSearch={handleNewSearch} onManageRoutes={handleGoToRouteManagement} onDashboard={handleBackToDashboard} onLogout={handleLogout} />
+            <Header onNewSearch={handleNewSearch} onManageRoutes={handleGoToRouteManagement} onManageCarriers={handleGoToCarrierManagement} onDashboard={handleBackToDashboard} onLogout={handleLogout} />
 
             {/* Main Content */}
             <main className="flex-1 p-8">
@@ -372,6 +377,18 @@ function AppContent() {
             transition={{ duration: 0.3 }}
           >
             <RouteManagement onBackToDashboard={handleBackToDashboard} onLogout={handleLogout} />
+          </motion.div>
+        )}
+
+        {currentScreen === 'carrier-management' && (
+          <motion.div
+            key="carrier-management"
+            initial={{ opacity: 0, x: 20 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: -20 }}
+            transition={{ duration: 0.3 }}
+          >
+            <CarrierManagement onBackToDashboard={handleBackToDashboard} onLogout={handleLogout} />
           </motion.div>
         )}
 

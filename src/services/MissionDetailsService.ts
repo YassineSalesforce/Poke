@@ -14,6 +14,8 @@ export interface MissionDetailsData {
   deliveryTime: string;
   estimatedPrice: number;
   notes?: string;
+  phone: string;
+  email: string;
 }
 
 export interface MissionDetailsResponse {
@@ -31,6 +33,8 @@ export interface MissionDetailsResponse {
   deliveryTime: string;
   estimatedPrice: number;
   notes?: string;
+  phone: string;
+  email: string;
   createdAt: string;
   updatedAt: string;
 }

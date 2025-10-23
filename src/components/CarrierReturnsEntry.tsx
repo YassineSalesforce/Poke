@@ -69,39 +69,31 @@ export function CarrierReturnsEntry({ onBack, onBackToDashboard, onNext, searchC
   const [alternativeCarriers, setAlternativeCarriers] = useState([]); // Nouveau state pour les transporteurs alternatifs
   const [loading, setLoading] = useState(true);
   
-  // États pour le modal de détails de mission par transporteur
   const [showMissionDetailsModal, setShowMissionDetailsModal] = useState(false);
   const [selectedCarrier, setSelectedCarrier] = useState(null);
   const [carrierMissionDetails, setCarrierMissionDetails] = useState({});
   const [savedCarriers, setSavedCarriers] = useState(new Set());
   
-  // États pour les favoris
   const [favorites, setFavorites] = useState(new Set());
   const [favoritesLoading, setFavoritesLoading] = useState(false);
 
   const extractCityAndPostalCode = (fullAddress: string) => {
-    // Si pas d'adresse, retourner une valeur par défaut
     if (!fullAddress) return 'Adresse non définie';
     
-    // Extraire la ville et le code postal de l'adresse complète
     const parts = fullAddress.split(',');
     if (parts.length >= 1) {
       const cityPart = parts[0].trim();
-      // Si la ville contient un code postal (ex: "Bordeaux 33000"), on l'extrait
       const cityMatch = cityPart.match(/^(.+?)\s+(\d{5})$/);
       if (cityMatch) {
         return `${cityMatch[1]} ${cityMatch[2]}`;
       }
-      // Si on trouve juste la ville sans code postal
       if (cityPart.length > 0) {
         return cityPart;
       }
     }
-    // Si on ne peut pas extraire proprement, afficher l'adresse complète
     return fullAddress;
   };
 
-  // Charger les favoris
   useEffect(() => {
     const loadFavorites = async () => {
       try {
@@ -116,7 +108,6 @@ export function CarrierReturnsEntry({ onBack, onBackToDashboard, onNext, searchC
     loadFavorites();
   }, []);
 
-  // Charger les contacts depuis la base de données
   useEffect(() => {
     const loadContacts = async () => {
       console.log('🔍 CarrierReturnsEntry - Chargement des contacts:', { searchId, searchCriteria });
@@ -132,7 +123,6 @@ export function CarrierReturnsEntry({ onBack, onBackToDashboard, onNext, searchC
         const contacts = await TransporterContactService.getContactsBySearch(searchId);
         console.log('📊 CarrierReturnsEntry - Contacts reçus:', contacts);
         
-        // Séparer les transporteurs correspondants et alternatifs
         const regularCarriers: CarrierReturn[] = [];
         const alternativeCarriersList: CarrierReturn[] = [];
         
@@ -462,6 +452,8 @@ export function CarrierReturnsEntry({ onBack, onBackToDashboard, onNext, searchC
           deliveryTime: details.deliveryTime,
           estimatedPrice: details.estimatedPrice,
           notes: details.notes,
+          phone: details.phone || '',
+          email: details.email || '',
         };
 
         // Sauvegarder en base de données

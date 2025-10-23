@@ -132,6 +132,8 @@ export function MissionOrders({ onBack, onBackToDashboard, searchCriteria, carri
       .map((carrier, index) => {
         // Trouver les détails de mission pour ce transporteur
         const details = missionDetails.find(detail => detail.transporterId === carrier.id);
+        console.log('📋 Détails de mission pour', carrier.name, ':', details);
+        console.log('📞 Phone:', details?.phone, 'Email:', details?.email);
         
         return {
           id: `order-${index + 1}`,
@@ -152,7 +154,9 @@ export function MissionOrders({ onBack, onBackToDashboard, searchCriteria, carri
           status: 'validated' as const,
           generated: false,
           sent: false,
-          notes: details?.notes || ''
+          notes: details?.notes || '',
+          phone: details?.phone || carrier.phone || '',
+          email: details?.email || carrier.email || ''
         };
       });
   };
@@ -230,7 +234,9 @@ export function MissionOrders({ onBack, onBackToDashboard, searchCriteria, carri
     // Informations transporteur
     addText('Transporteur : ' + order.carrierName, leftColumn, yPosition, { style: 'bold' });
     yPosition += 8;
-    addText('Contact : contact@' + order.carrierName.toLowerCase().replace(/\s+/g, '-') + '.fr / +33 5 56 00 00 00', leftColumn, yPosition);
+    const email = order.email || 'contact@' + order.carrierName.toLowerCase().replace(/\s+/g, '-') + '.fr';
+    const phone = order.phone || '+33 5 56 00 00 00';
+    addText('Contact : ' + email + ' / ' + phone, leftColumn, yPosition);
     yPosition += 15;
 
     // Détails de la mission
