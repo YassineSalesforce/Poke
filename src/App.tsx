@@ -33,17 +33,16 @@ function AppContent() {
   const [searchCriteria, setSearchCriteria] = useState<any>(null);
   const [carrierReturns, setCarrierReturns] = useState<any[]>([]);
 
-  // Rediriger vers la recherche après connexion réussie
   React.useEffect(() => {
     if (isAuthenticated && showLogin) {
       setShowLogin(false);
-      setCurrentScreen('search-form');
+      setCurrentScreen('dashboard');
     }
   }, [isAuthenticated, showLogin]);
 
   const handleStartApp = () => {
     if (isAuthenticated) {
-      setCurrentScreen('search-form');
+      setCurrentScreen('dashboard');
     } else {
       setShowLogin(true);
       setIsLoginMode(true);
