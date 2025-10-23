@@ -18,6 +18,7 @@ import { TransporterService, TransporterData, SearchCriteria } from '../services
 import { MissionService, AlternativeTransporter } from '../services/MissionService';
 import { TransporterContactService } from '../services/TransporterContactService';
 import { TransporterRouteService } from '../services/TransporterRouteService';
+import { TransporterRefusalService } from '../services/TransporterRefusalService';
 
 interface SearchResultsProps {
   onBack: () => void;
@@ -25,6 +26,7 @@ interface SearchResultsProps {
   onNext?: () => void;
   onCreateRoute?: (carrier: string, route: string) => void;
   searchCriteria?: any; // Critères de recherche depuis SearchForm
+  onLogout: () => void;
 }
 
 interface Carrier {
@@ -58,7 +60,7 @@ interface AlternativeCarrier {
   lastMission: string;
 }
 
-export function SearchResults({ onBack, onBackToDashboard, onNext, onCreateRoute, searchCriteria }: SearchResultsProps) {
+export function SearchResults({ onBack, onBackToDashboard, onNext, onCreateRoute, searchCriteria, onLogout }: SearchResultsProps) {
   console.log('🔍 SearchResults reçu searchCriteria:', searchCriteria);
   
   const extractCityAndPostalCode = (fullAddress: string) => {
@@ -202,6 +204,58 @@ export function SearchResults({ onBack, onBackToDashboard, onNext, onCreateRoute
           };
           
           let matchingTransporters = TransporterService.searchTransporters(criteria);
+          
+          // Récupérer les statistiques de refus pour tous les transporteurs
+          const userId = searchCriteria?.userId || 'user-1';
+          const transporterIds = matchingTransporters.map(t => t.id);
+          console.log('🔍 Récupération des refus pour userId:', userId);
+          console.log('🔍 IDs des transporteurs:', transporterIds);
+          
+          const refusalMap = await TransporterRefusalService.getRefusalCounts(userId, transporterIds);
+          console.log('📊 Refusals récupérés:', Array.from(refusalMap.entries()));
+          
+          // Ajouter le nombre de refus à chaque transporteur et appliquer les pénalités
+          matchingTransporters = matchingTransporters.map(transporter => {
+            const refusalCount = refusalMap.get(transporter.id) || 0;
+            const penaltyPerRefusal = 0.4;
+            const maxPenaltyRefusals = 5; // Limiter la pénalité à 5 refus maximum
+            const effectiveRefusals = Math.min(refusalCount, maxPenaltyRefusals);
+            const totalPenalty = effectiveRefusals * penaltyPerRefusal;
+            
+            return {
+              ...transporter,
+              refusalCount: refusalCount,
+              note: Math.max(0, transporter.note - totalPenalty),
+            };
+          });
+          
+          console.log('📊 Transporteurs avec refus et pénalités:', matchingTransporters.map(t => ({ 
+            nom: t.nom, 
+            refusalCount: t.refusalCount, 
+            effectiveRefusals: Math.min(t.refusalCount || 0, 5),
+            scoreApres: t.note.toFixed(1),
+            confianceApres: Math.round(t.note * 10) + '%'
+          })));
+          
+          // Trier les transporteurs : ceux avec des refus à la fin
+          matchingTransporters.sort((a, b) => {
+            const refusalA = a.refusalCount || 0;
+            const refusalB = b.refusalCount || 0;
+            
+            // Si l'un a des refus et pas l'autre, mettre celui avec refus à la fin
+            if (refusalA > 0 && refusalB === 0) return 1;
+            if (refusalA === 0 && refusalB > 0) return -1;
+            
+            // Si les deux ont des refus, trier par nombre de refus croissant
+            if (refusalA > 0 && refusalB > 0) {
+              return refusalB - refusalA; // Plus de refus = plus loin
+            }
+            
+            // Sinon garder l'ordre actuel (basé sur le ranking existant)
+            return 0;
+          });
+          
+          console.log('✅ Transporteurs triés:', matchingTransporters.map(t => ({ nom: t.nom, refusalCount: t.refusalCount })));
           
           // Charger les contacts depuis la base de données pour appliquer les statuts
           console.log('🔍 SearchResults - searchId disponible:', searchCriteria.searchId);
@@ -538,6 +592,10 @@ export function SearchResults({ onBack, onBackToDashboard, onNext, onCreateRoute
     ));
   };
 
+  const handleLogout = () => {
+    onLogout();
+  };
+
   const handleCreateRoute = async (carrierId: string) => {
     try {
       // Trouver le transporteur alternatif
@@ -657,7 +715,7 @@ export function SearchResults({ onBack, onBackToDashboard, onNext, onCreateRoute
                   cursor: 'pointer'
                 }}
               >
-                TransportHub
+                Affréteur IA
               </a>
             </div>
 
@@ -686,6 +744,31 @@ export function SearchResults({ onBack, onBackToDashboard, onNext, onCreateRoute
                   Saisir les retours ({coverageRate}%)
                 </Button>
               )}
+
+              {/* Profil utilisateur */}
+              <div className="flex items-center gap-3 pl-4 border-l border-gray-200">
+                <Avatar className="w-10 h-10">
+                  <AvatarImage src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${user?.email || 'default'}`} />
+                  <AvatarFallback style={{ backgroundColor: '#2B3A55', color: 'white' }}>
+                    {user?.firstName?.[0] || 'J'}{user?.lastName?.[0] || 'D'}
+                  </AvatarFallback>
+                </Avatar>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <div className="flex flex-col cursor-pointer">
+                      <span className="text-sm font-medium" style={{ color: 'white' }}>
+                        {user ? `${user.firstName || 'Jean'} ${user.lastName || 'Dupont'}` : 'Utilisateur'}
+                      </span>
+                    </div>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-56">
+                    <DropdownMenuItem onClick={handleLogout} className="cursor-pointer text-red-600">
+                      <LogOut className="w-4 h-4 mr-2" />
+                      Se déconnecter
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </div>
             </div>
           </div>
 
@@ -870,6 +953,11 @@ export function SearchResults({ onBack, onBackToDashboard, onNext, onCreateRoute
                               Top {index + 1}
                             </Badge>
                           )}
+                          {transporter.refusalCount > 0 && (
+                            <Badge variant="destructive" className="text-xs">
+                              ❌ {transporter.refusalCount} refus
+                            </Badge>
+                          )}
                         </div>
 
                         {/* Route */}
@@ -880,7 +968,7 @@ export function SearchResults({ onBack, onBackToDashboard, onNext, onCreateRoute
                         {/* Score */}
                         <div className="flex items-center gap-1">
                           <Star className="w-4 h-4" style={{ color: '#F6A20E' }} />
-                          <span className="text-sm">{transporter.note}</span>
+                          <span className="text-sm">{transporter.note.toFixed(1)}</span>
                         </div>
 
                         {/* Confidence */}

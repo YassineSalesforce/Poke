@@ -23,9 +23,19 @@ import { RouteDrawer } from './RouteDrawer';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 import { toast } from 'sonner';
 import { TransporterRouteService } from '../services/TransporterRouteService';
+import { useAuth } from '../contexts/AuthContext';
+import { Avatar, AvatarFallback, AvatarImage } from './ui/avatar';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from './ui/dropdown-menu';
+import { LogOut } from 'lucide-react';
 
 interface RouteManagementProps {
   onBackToDashboard: () => void;
+  onLogout: () => void;
 }
 
 interface RouteData {
@@ -56,9 +66,14 @@ interface SuggestedRoute {
   destinationDepartment: string;
 }
 
-export function RouteManagement({ onBackToDashboard }: RouteManagementProps) {
+export function RouteManagement({ onBackToDashboard, onLogout }: RouteManagementProps) {
+  const { user } = useAuth();
   // Chaque utilisateur commence avec aucune route - il doit les créer lui-même
   const [routes, setRoutes] = useState<RouteData[]>([]);
+
+  const handleLogout = () => {
+    onLogout();
+  };
   const [loading, setLoading] = useState(true);
   const userId = 'user-1'; // TODO: Récupérer l'ID utilisateur depuis le contexte d'authentification
 
@@ -344,7 +359,7 @@ export function RouteManagement({ onBackToDashboard }: RouteManagementProps) {
                   cursor: 'pointer'
                 }}
               >
-                TransportHub
+                Affréteur IA
               </a>
             </div>
 
@@ -365,6 +380,31 @@ export function RouteManagement({ onBackToDashboard }: RouteManagementProps) {
                 <Plus className="w-4 h-4 mr-2" />
                 Ajouter une route
               </Button>
+
+              {/* Profil utilisateur */}
+              <div className="flex items-center gap-3 pl-4 border-l border-gray-200">
+                <Avatar className="w-10 h-10">
+                  <AvatarImage src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${user?.email || 'default'}`} />
+                  <AvatarFallback style={{ backgroundColor: '#2B3A55', color: 'white' }}>
+                    {user?.firstName?.[0] || 'J'}{user?.lastName?.[0] || 'D'}
+                  </AvatarFallback>
+                </Avatar>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <div className="flex flex-col cursor-pointer">
+                      <span className="text-sm font-medium" style={{ color: 'white' }}>
+                        {user ? `${user.firstName || 'Jean'} ${user.lastName || 'Dupont'}` : 'Utilisateur'}
+                      </span>
+                    </div>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-56">
+                    <DropdownMenuItem onClick={handleLogout} className="cursor-pointer text-red-600">
+                      <LogOut className="w-4 h-4 mr-2" />
+                      Se déconnecter
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </div>
             </div>
           </div>
 

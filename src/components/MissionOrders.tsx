@@ -4,6 +4,8 @@ import { Card, CardContent } from './ui/card';
 import { Button } from './ui/button';
 import { Badge } from './ui/badge';
 import { MissionDetailsService } from '../services/MissionDetailsService';
+import jsPDF from 'jspdf';
+import JSZip from 'jszip';
 import { 
   MapPin, 
   Truck, 
@@ -18,9 +20,18 @@ import {
   Package,
   Home,
   PartyPopper,
-  CheckCircle
+  CheckCircle,
+  LogOut
 } from 'lucide-react';
 import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbPage, BreadcrumbSeparator } from './ui/breadcrumb';
+import { useAuth } from '../contexts/AuthContext';
+import { Avatar, AvatarFallback, AvatarImage } from './ui/avatar';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from './ui/dropdown-menu';
 import {
   Dialog,
   DialogContent,
@@ -36,6 +47,7 @@ interface MissionOrdersProps {
   searchCriteria?: any;
   carrierReturns?: any[];
   searchId?: string;
+  onLogout: () => void;
 }
 
 interface OrderData {
@@ -59,7 +71,12 @@ interface OrderData {
   sent: boolean;
 }
 
-export function MissionOrders({ onBack, onBackToDashboard, searchCriteria, carrierReturns, searchId }: MissionOrdersProps) {
+export function MissionOrders({ onBack, onBackToDashboard, searchCriteria, carrierReturns, searchId, onLogout }: MissionOrdersProps) {
+  const { user } = useAuth();
+
+  const handleLogout = () => {
+    onLogout();
+  };
   const [missionDetails, setMissionDetails] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -157,9 +174,131 @@ export function MissionOrders({ onBack, onBackToDashboard, searchCriteria, carri
   const totalEstimated = orders.reduce((sum, order) => sum + order.totalPrice, 0);
   const allGenerated = orders.every(order => order.generated);
 
-  const handleGenerateOrder = (orderId: string) => {
-    setOrders(prev => prev.map(order => 
-      order.id === orderId ? { ...order, generated: true } : order
+  const generateOrderPDF = async (order: OrderData): Promise<Blob> => {
+    // Générer le PDF
+    const doc = new jsPDF();
+    
+    // Configuration de la page
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const pageHeight = doc.internal.pageSize.getHeight();
+    let yPosition = 20;
+
+    // Fonction pour ajouter du texte avec style
+    const addText = (text: string, x: number, y: number, options: any = {}) => {
+      doc.setFontSize(options.fontSize || 12);
+      doc.setTextColor(options.color || '#000000');
+      doc.setFont(options.font || 'helvetica', options.style || 'normal');
+      doc.text(text, x, y);
+    };
+
+    // Fonction pour ajouter une ligne de séparation
+    const addLine = (y: number) => {
+      doc.setDrawColor(200, 200, 200);
+      doc.line(20, y, pageWidth - 20, y);
+    };
+
+    // Titre principal
+    addText('Ordre de Mission Transport', pageWidth / 2, yPosition, { 
+      fontSize: 18, 
+      style: 'bold',
+      color: '#2B3A55'
+    });
+    yPosition += 20;
+
+    // Titre de section
+    addText('ORDRE DE MISSION TRANSPORT', pageWidth / 2, yPosition, { 
+      fontSize: 16, 
+      style: 'bold',
+      color: '#F6A20E'
+    });
+    yPosition += 15;
+    addLine(yPosition);
+    yPosition += 10;
+
+    const leftColumn = 20;
+    const rightColumn = pageWidth / 2 + 10;
+
+    addText('Affréteur : SELI BORDEAUX', leftColumn, yPosition, { style: 'bold' });
+    addText('Date : ' + new Date().toLocaleDateString('fr-FR'), rightColumn, yPosition, { style: 'bold' });
+    yPosition += 10;
+
+    // Numéro de carnet
+    const orderNumber = `OMD-2025-${order.id.slice(-6).toUpperCase()}`;
+    addText('Référence mission : ' + orderNumber, leftColumn, yPosition, { style: 'bold' });
+    yPosition += 15;
+
+    // Informations transporteur
+    addText('Transporteur : ' + order.carrierName, leftColumn, yPosition, { style: 'bold' });
+    yPosition += 8;
+    addText('Contact : contact@' + order.carrierName.toLowerCase().replace(/\s+/g, '-') + '.fr / +33 5 56 00 00 00', leftColumn, yPosition);
+    yPosition += 15;
+
+    // Détails de la mission
+    addText('Type de véhicule : ' + order.vehicleType, leftColumn, yPosition, { style: 'bold' });
+    yPosition += 8;
+    addText('Marchandise : ' + order.merchandise, leftColumn, yPosition, { style: 'bold' });
+    yPosition += 8;
+    addText('Quantité affectée : ' + order.ensembles + ' tonne' + (order.ensembles > 1 ? 's' : ''), leftColumn, yPosition, { style: 'bold' });
+    yPosition += 15;
+    addLine(yPosition);
+    yPosition += 10;
+
+    // Chargement
+    addText('Chargement :', leftColumn, yPosition, { style: 'bold' });
+    yPosition += 8;
+    addText('> ' + order.loadingLocation, leftColumn, yPosition);
+    yPosition += 6;
+    addText('> ' + order.loadingDate + ' – ' + order.loadingTime, leftColumn, yPosition);
+    yPosition += 15;
+
+    // Livraison
+    addText('Livraison :', leftColumn, yPosition, { style: 'bold' });
+    yPosition += 8;
+    addText('> ' + order.deliveryLocation, leftColumn, yPosition);
+    yPosition += 6;
+    addText('> ' + order.deliveryDate + ' – ' + order.deliveryTime, leftColumn, yPosition);
+    yPosition += 15;
+    addLine(yPosition);
+    yPosition += 10;
+
+    // Tarification
+    addText('Tarification :', leftColumn, yPosition, { style: 'bold' });
+    yPosition += 8;
+    addText(order.pricePerEnsemble + ' € / tonne', leftColumn, yPosition);
+    yPosition += 6;
+    addText('Total : ' + order.totalPrice + ' € HT', leftColumn, yPosition, { style: 'bold' });
+
+    // Pied de page
+    yPosition = pageHeight - 30;
+    addText('Document généré automatiquement le ' + new Date().toLocaleString('fr-FR'), pageWidth / 2, yPosition, { 
+      fontSize: 10, 
+      color: '#666666' 
+    });
+
+    // Retourner le PDF comme blob
+    return doc.output('blob');
+  };
+
+  const handleGenerateOrder = async (orderId: string) => {
+    const order = orders.find(o => o.id === orderId);
+    if (!order) return;
+
+    const pdfBlob = await generateOrderPDF(order);
+    
+    // Télécharger le PDF individuellement
+    const fileName = `Ordre_Mission_${order.carrierName.replace(/\s+/g, '_')}_${orderId.slice(-6)}.pdf`;
+    const url = URL.createObjectURL(pdfBlob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = fileName;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+
+    // Marquer l'ordre comme généré
+    setOrders(prev => prev.map(o => 
+      o.id === orderId ? { ...o, generated: true } : o
     ));
   };
 
@@ -171,9 +310,40 @@ export function MissionOrders({ onBack, onBackToDashboard, searchCriteria, carri
     setShowSendModal(true);
   };
 
-  const handleExportAll = () => {
-    setOrders(prev => prev.map(order => ({ ...order, generated: true })));
-    setShowAllExportedModal(true);
+  const handleExportAll = async () => {
+    try {
+      // Créer une instance JSZip
+      const zip = new JSZip();
+      
+      // Générer tous les PDFs et les ajouter au ZIP
+      for (const order of orders) {
+        const pdfBlob = await generateOrderPDF(order);
+        const fileName = `Ordre_Mission_${order.carrierName.replace(/\s+/g, '_')}_${order.id.slice(-6)}.pdf`;
+        zip.file(fileName, pdfBlob);
+        
+        // Marquer comme généré
+        setOrders(prevOrders => 
+          prevOrders.map(o => 
+            o.id === order.id ? { ...o, generated: true } : o
+          )
+        );
+      }
+      
+      // Générer le ZIP et le télécharger
+      const zipBlob = await zip.generateAsync({ type: 'blob' });
+      const url = URL.createObjectURL(zipBlob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `Ordres_Mission_${new Date().toISOString().split('T')[0]}.zip`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+      
+      setShowAllExportedModal(true);
+    } catch (error) {
+      console.error('Erreur lors de la génération du ZIP:', error);
+    }
   };
 
   return (
@@ -201,7 +371,7 @@ export function MissionOrders({ onBack, onBackToDashboard, searchCriteria, carri
                   cursor: 'pointer'
                 }}
               >
-                TransportHub
+                Affréteur IA
               </a>
             </div>
 
@@ -224,8 +394,33 @@ export function MissionOrders({ onBack, onBackToDashboard, searchCriteria, carri
                 style={{ backgroundColor: '#F6A20E', color: 'white' }}
               >
                 <Download className="w-4 h-4 mr-2" />
-                Exporter tous les ordres (PDF)
+                Exporter tous les ordres (ZIP)
               </Button>
+
+              {/* Profil utilisateur */}
+              <div className="flex items-center gap-3 pl-4 border-l border-gray-200">
+                <Avatar className="w-10 h-10">
+                  <AvatarImage src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${user?.email || 'default'}`} />
+                  <AvatarFallback style={{ backgroundColor: '#2B3A55', color: 'white' }}>
+                    {user?.firstName?.[0] || 'J'}{user?.lastName?.[0] || 'D'}
+                  </AvatarFallback>
+                </Avatar>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <div className="flex flex-col cursor-pointer">
+                      <span className="text-sm font-medium" style={{ color: 'white' }}>
+                        {user ? `${user.firstName || 'Jean'} ${user.lastName || 'Dupont'}` : 'Utilisateur'}
+                      </span>
+                    </div>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-56">
+                    <DropdownMenuItem onClick={handleLogout} className="cursor-pointer text-red-600">
+                      <LogOut className="w-4 h-4 mr-2" />
+                      Se déconnecter
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </div>
             </div>
           </div>
 
@@ -315,7 +510,7 @@ export function MissionOrders({ onBack, onBackToDashboard, searchCriteria, carri
                   {/* Quantity */}
                   <div className="pl-8 border-l border-gray-200">
                     <p className="text-sm text-gray-500">Quantité totale</p>
-                    <p>{totalEnsembles} ensembles</p>
+                    <p>{totalEnsembles} tonnes</p>
                   </div>
 
                   {/* Dates */}
@@ -409,7 +604,7 @@ export function MissionOrders({ onBack, onBackToDashboard, searchCriteria, carri
                           </div>
                           <div>
                             <p className="text-sm text-gray-500">Quantité</p>
-                            <p className="text-sm">{order.ensembles} ensemble{order.ensembles > 1 ? 's' : ''} </p>
+                            <p className="text-sm">{order.ensembles} tonne{order.ensembles > 1 ? 's' : ''} </p>
                           </div>
                         </div>
 
@@ -445,7 +640,7 @@ export function MissionOrders({ onBack, onBackToDashboard, searchCriteria, carri
                             <TrendingUp className="w-4 h-4 text-gray-400" />
                           </div>
                           <div className="flex items-baseline gap-2">
-                            <span className="text-sm text-gray-600">{order.pricePerEnsemble} € / ensemble</span>
+                            <span className="text-sm text-gray-600">{order.pricePerEnsemble} € / tonne</span>
                             <span className="text-gray-400">→</span>
                             <span className="text-lg" style={{ color: '#2B3A55' }}>Total {order.totalPrice} € HT</span>
                           </div>
@@ -521,7 +716,7 @@ export function MissionOrders({ onBack, onBackToDashboard, searchCriteria, carri
                     </div>
                     
                     <div className="flex items-center justify-between p-3 bg-green-50 rounded-lg">
-                      <span className="text-sm text-gray-600">Ensembles attribués</span>
+                      <span className="text-sm text-gray-600">Quantité attribuée</span>
                       <span className="text-lg text-green-700">{totalEnsembles} / {totalEnsembles}</span>
                     </div>
                     

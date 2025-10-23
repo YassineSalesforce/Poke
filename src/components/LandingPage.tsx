@@ -358,7 +358,7 @@ export function LandingPage({ onStart }: { onStart: () => void }) {
 
       {/* Header */}
       <div className="header">
-        <a href="/" className="logo">TransportHub</a>
+        <a href="/" className="logo">Affréteur IA</a>
       </div>
 
       <div className="hero-container">

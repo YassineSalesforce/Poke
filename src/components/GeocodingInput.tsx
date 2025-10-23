@@ -29,12 +29,11 @@ export function GeocodingInput({
   const [suggestions, setSuggestions] = useState<GeocodingResult[]>([]);
   const [showDetails, setShowDetails] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [isManualSelection, setIsManualSelection] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const suggestionsRef = useRef<HTMLDivElement>(null);
   const timeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const isManualSelectionRef = useRef<boolean>(false);
 
-  // Géocoder l'adresse quand elle change (seulement si pas de suggestions ouvertes)
   useEffect(() => {
     if (!value || value.length < 3) {
       setGeocodeResult(null);
@@ -44,40 +43,31 @@ export function GeocodingInput({
       return;
     }
 
-    // Si les suggestions sont ouvertes, ne pas géocoder automatiquement
     if (showSuggestions) {
       return;
     }
 
-    // Si c'est une sélection manuelle, ne pas géocoder
-    if (isManualSelection) {
-      setIsManualSelection(false);
+    if (isManualSelectionRef.current) {
+      isManualSelectionRef.current = false;
       return;
     }
 
-    // Annuler le timeout précédent
     if (timeoutRef.current) {
       clearTimeout(timeoutRef.current);
     }
 
-    // Nouveau timeout pour éviter trop de requêtes
     timeoutRef.current = setTimeout(async () => {
       setIsAnalyzing(true);
       setError(null);
       
       try {
-        // Géocoder l'adresse
         const result = await GeocodingService.geocodeAddress(value);
         setGeocodeResult(result);
         
-        // Notifier le parent du résultat
         onGeocodeResult?.(result);
         
-        // Si l'adresse est complète, montrer les détails
-        if (GeocodingService.isCompleteAddress(result)) {
+        if (result.city && result.country) {
           setShowDetails(true);
-        } else {
-          setShowDetails(false);
         }
       } catch (err) {
         setError('Erreur lors de l\'analyse de l\'adresse');
@@ -85,16 +75,15 @@ export function GeocodingInput({
       } finally {
         setIsAnalyzing(false);
       }
-    }, 1000); // Délai augmenté à 1000ms pour éviter les conflits
+    }, 1000); 
 
     return () => {
       if (timeoutRef.current) {
         clearTimeout(timeoutRef.current);
       }
     };
-  }, [value, onGeocodeResult, isManualSelection, showSuggestions]);
+  }, [value, onGeocodeResult, showSuggestions]);
 
-  // Générer des suggestions (avec délai pour éviter les conflits)
   useEffect(() => {
     if (!value || value.length < 3) {
       setSuggestions([]);
@@ -102,12 +91,10 @@ export function GeocodingInput({
       return;
     }
 
-    // Annuler le timeout précédent
     if (timeoutRef.current) {
       clearTimeout(timeoutRef.current);
     }
 
-    // Délai pour éviter trop de requêtes
     timeoutRef.current = setTimeout(async () => {
       try {
         const newSuggestions = await GeocodingService.getSuggestions(value);
@@ -118,7 +105,7 @@ export function GeocodingInput({
         setSuggestions([]);
         setShowSuggestions(false);
       }
-    }, 500); // Délai plus court pour les suggestions
+    }, 500); 
 
     return () => {
       if (timeoutRef.current) {
@@ -127,7 +114,6 @@ export function GeocodingInput({
     };
   }, [value]);
 
-  // Fermer les suggestions quand on clique ailleurs
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (suggestionsRef.current && !suggestionsRef.current.contains(event.target as Node)) {
@@ -140,27 +126,19 @@ export function GeocodingInput({
   }, []);
 
   const handleSuggestionClick = (suggestion: GeocodingResult) => {
-    // Fermer les suggestions immédiatement
     setShowSuggestions(false);
     setSuggestions([]);
     
-    // Marquer comme sélection manuelle pour éviter le géocodage automatique
-    setIsManualSelection(true);
+    isManualSelectionRef.current = true;
     
-    // Mettre à jour la valeur
-    onChange(suggestion.formattedAddress);
-    
-    // Définir le résultat de géocodage
     setGeocodeResult(suggestion);
-    
-    // Notifier le parent
-    onGeocodeResult?.(suggestion);
-    
-    // Toujours montrer les détails pour une sélection manuelle
     setShowDetails(true);
     setError(null);
     
-    // Focus sur l'input
+    onGeocodeResult?.(suggestion);
+    
+    onChange(suggestion.formattedAddress);
+    
     if (inputRef.current) {
       inputRef.current.focus();
     }
@@ -214,7 +192,6 @@ export function GeocodingInput({
               }
             }}
             onBlur={() => {
-              // Délai pour permettre le clic sur les suggestions
               setTimeout(() => {
                 setShowSuggestions(false);
               }, 200);
@@ -223,7 +200,6 @@ export function GeocodingInput({
           />
         </div>
 
-        {/* Suggestions */}
         {showSuggestions && suggestions.length > 0 && (
           <div 
             ref={suggestionsRef}
@@ -262,7 +238,7 @@ export function GeocodingInput({
         )}
 
         {/* Détails de géocodage */}
-        {showDetails && geocodeResult && GeocodingService.isCompleteAddress(geocodeResult) && (
+        {showDetails && geocodeResult && geocodeResult.city && geocodeResult.country && (
           <div className="mt-2 p-3 bg-green-50 border border-green-200 rounded-lg">
             <div className="flex items-start gap-2">
               <Check className="w-4 h-4 text-green-600 mt-0.5" />
@@ -301,18 +277,6 @@ export function GeocodingInput({
               <AlertCircle className="w-4 h-4 text-red-600" />
               <div className="text-sm text-red-800">
                 {error}
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Message d'avertissement si l'adresse n'est pas reconnue */}
-        {!isAnalyzing && !error && value && value.length >= 3 && geocodeResult && !GeocodingService.isCompleteAddress(geocodeResult) && (
-          <div className="mt-2 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
-            <div className="flex items-center gap-2">
-              <AlertCircle className="w-4 h-4 text-yellow-600" />
-              <div className="text-sm text-yellow-800">
-                Adresse partiellement reconnue. Confiance: {Math.round(geocodeResult.confidence)}%
               </div>
             </div>
           </div>

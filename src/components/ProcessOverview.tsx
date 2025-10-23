@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Card, CardContent } from './ui/card';
 import { Button } from './ui/button';
@@ -29,11 +29,25 @@ import {
   DrawerTitle,
 } from './ui/drawer';
 import { Progress } from './ui/progress';
+import { UserSearchHistoryService } from '../services/UserSearchHistoryService';
+import { TransporterContactService } from '../services/TransporterContactService';
+import { TransporterRouteService } from '../services/TransporterRouteService';
+import { useAuth } from '../contexts/AuthContext';
+import { Avatar, AvatarFallback, AvatarImage } from './ui/avatar';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from './ui/dropdown-menu';
+import { LogOut } from 'lucide-react';
 
 interface ProcessOverviewProps {
   onBackToDashboard: () => void;
   onStartNewMission: () => void;
   onNavigateToStep?: (step: number) => void;
+  onLogout: () => void;
+  userId?: string;
 }
 
 interface ProcessStep {
@@ -46,9 +60,95 @@ interface ProcessStep {
   screenName: string;
 }
 
-export function ProcessOverview({ onBackToDashboard, onStartNewMission, onNavigateToStep }: ProcessOverviewProps) {
+export function ProcessOverview({ onBackToDashboard, onStartNewMission, onNavigateToStep, onLogout, userId = 'user-1' }: ProcessOverviewProps) {
+  const { user } = useAuth();
   const [selectedStep, setSelectedStep] = useState<ProcessStep | null>(null);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+  const [contactStats, setContactStats] = useState({
+    totalContacts: 0,
+    accepted: 0,
+    pending: 0,
+    refused: 0,
+    totalVolume: 0,
+    totalRoutes: 0,
+    totalSearchVolume: 0
+  });
+  const [loadingStats, setLoadingStats] = useState(true);
+
+  const handleLogout = () => {
+    onLogout();
+  };
+
+  // Charger les statistiques des contacts
+  useEffect(() => {
+    const loadContactStats = async () => {
+      try {
+        setLoadingStats(true);
+        console.log('🔄 Chargement des statistiques de contacts pour userId:', userId);
+        
+        // Récupérer toutes les recherches de l'utilisateur
+        const allSearches = await UserSearchHistoryService.getUserSearchHistory(userId);
+        console.log('📊 Recherches trouvées:', allSearches.length);
+        
+        let totalContacts = 0;
+        let accepted = 0;
+        let pending = 0;
+        let refused = 0;
+        let totalVolume = 0;
+        let totalRoutes = 0;
+        let totalSearchVolume = 0;
+        
+        // Calculer le volume total de toutes les recherches
+        totalSearchVolume = allSearches.reduce((sum, search) => sum + (search.quantite || 0), 0);
+        console.log('📦 Volume total des recherches:', totalSearchVolume);
+        
+        // Pour chaque recherche, récupérer les contacts
+        for (const search of allSearches) {
+          try {
+            const contacts = await TransporterContactService.getContactsBySearch(search._id);
+            console.log(`📋 Contacts pour recherche ${search._id}:`, contacts.length);
+            
+            totalContacts += contacts.length;
+            
+            contacts.forEach(contact => {
+              switch (contact.status) {
+                case 'yes':
+                  accepted++;
+                  totalVolume += contact.volume;
+                  break;
+                case 'pending':
+                  pending++;
+                  break;
+                case 'no':
+                  refused++;
+                  break;
+              }
+            });
+          } catch (error) {
+            console.error(`❌ Erreur lors du chargement des contacts pour ${search._id}:`, error);
+          }
+        }
+        
+        // Récupérer les routes de l'utilisateur
+        try {
+          const userRoutes = await TransporterRouteService.getRoutesByUser(userId);
+          totalRoutes = userRoutes.length;
+          console.log('🛣️ Routes trouvées:', totalRoutes);
+        } catch (error) {
+          console.error('❌ Erreur lors du chargement des routes:', error);
+        }
+        
+        console.log('✅ Statistiques calculées:', { totalContacts, accepted, pending, refused, totalVolume, totalRoutes, totalSearchVolume });
+        setContactStats({ totalContacts, accepted, pending, refused, totalVolume, totalRoutes, totalSearchVolume });
+      } catch (error) {
+        console.error('❌ Erreur lors du chargement des statistiques:', error);
+      } finally {
+        setLoadingStats(false);
+      }
+    };
+
+    loadContactStats();
+  }, [userId]);
 
   const steps: ProcessStep[] = [
     {
@@ -169,18 +269,20 @@ export function ProcessOverview({ onBackToDashboard, onStartNewMission, onNaviga
           <div className="flex items-center justify-between mb-4">
             {/* Logo officiel */}
             <div className="flex items-center gap-3">
-              <a 
-                href="/" 
-                className="transition-all duration-300 hover:scale-105"
+              <button 
+                onClick={onBackToDashboard}
+                className="transition-all duration-300 hover:scale-105 cursor-pointer"
                 style={{ 
                   fontSize: '1.5rem',
                   fontWeight: '800',
                   color: 'white',
-                  textDecoration: 'none'
+                  textDecoration: 'none',
+                  background: 'none',
+                  border: 'none'
                 }}
               >
-                TransportHub
-              </a>
+                Affréteur IA
+              </button>
             </div>
 
             {/* Action Buttons */}
@@ -200,6 +302,31 @@ export function ProcessOverview({ onBackToDashboard, onStartNewMission, onNaviga
                 <Play className="w-4 h-4 mr-2" />
                 Démarrer une nouvelle mission
               </Button>
+
+              {/* Profil utilisateur */}
+              <div className="flex items-center gap-3 pl-4 border-l border-gray-200">
+                <Avatar className="w-10 h-10">
+                  <AvatarImage src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${user?.email || 'default'}`} />
+                  <AvatarFallback style={{ backgroundColor: '#2B3A55', color: 'white' }}>
+                    {user?.firstName?.[0] || 'J'}{user?.lastName?.[0] || 'D'}
+                  </AvatarFallback>
+                </Avatar>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <div className="flex flex-col cursor-pointer">
+                      <span className="text-sm font-medium" style={{ color: 'white' }}>
+                        {user ? `${user.firstName || 'Jean'} ${user.lastName || 'Dupont'}` : 'Utilisateur'}
+                      </span>
+                    </div>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-56">
+                    <DropdownMenuItem onClick={handleLogout} className="cursor-pointer text-red-600">
+                      <LogOut className="w-4 h-4 mr-2" />
+                      Se déconnecter
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </div>
             </div>
           </div>
 
@@ -350,7 +477,14 @@ export function ProcessOverview({ onBackToDashboard, onStartNewMission, onNaviga
                       <Users className="w-5 h-5 text-blue-600" />
                       <span className="text-sm text-gray-600">Transporteurs contactés</span>
                     </div>
-                    <p className="text-2xl text-blue-700">8</p>
+                    {loadingStats ? (
+                      <div className="flex items-center gap-2">
+                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
+                        <span className="text-sm text-blue-600">Chargement...</span>
+                      </div>
+                    ) : (
+                      <p className="text-2xl text-blue-700">{contactStats.totalContacts}</p>
+                    )}
                   </div>
 
                   <div className="bg-green-50 rounded-lg p-4">
@@ -364,9 +498,16 @@ export function ProcessOverview({ onBackToDashboard, onStartNewMission, onNaviga
                   <div className="bg-purple-50 rounded-lg p-4">
                     <div className="flex items-center gap-2 mb-2">
                       <Package className="w-5 h-5 text-purple-600" />
-                      <span className="text-sm text-gray-600">Volume transporté</span>
+                      <span className="text-sm text-gray-600">Volume recherché</span>
                     </div>
-                    <p className="text-2xl text-purple-700">135 t</p>
+                    {loadingStats ? (
+                      <div className="flex items-center gap-2">
+                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-purple-600"></div>
+                        <span className="text-sm text-purple-600">Chargement...</span>
+                      </div>
+                    ) : (
+                      <p className="text-2xl text-purple-700">{contactStats.totalSearchVolume} t</p>
+                    )}
                   </div>
 
                   <div className="bg-amber-50 rounded-lg p-4">
@@ -374,7 +515,14 @@ export function ProcessOverview({ onBackToDashboard, onStartNewMission, onNaviga
                       <RouteIcon className="w-5 h-5 text-amber-600" />
                       <span className="text-sm text-gray-600">Routes ajoutées</span>
                     </div>
-                    <p className="text-2xl text-amber-700">3</p>
+                    {loadingStats ? (
+                      <div className="flex items-center gap-2">
+                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-amber-600"></div>
+                        <span className="text-sm text-amber-600">Chargement...</span>
+                      </div>
+                    ) : (
+                      <p className="text-2xl text-amber-700">{contactStats.totalRoutes}</p>
+                    )}
                   </div>
                 </div>
 
@@ -430,9 +578,7 @@ export function ProcessOverview({ onBackToDashboard, onStartNewMission, onNaviga
           <Card className="shadow-md border-blue-200 bg-gradient-to-r from-blue-50 to-white">
             <CardContent className="p-8 text-center">
               <h2 className="mb-2" style={{ color: '#2B3A55' }}>Prêt à optimiser votre prochain affrètement ?</h2>
-              <p className="text-gray-600 mb-6">
-                Notre IA vous accompagne à chaque étape pour gagner du temps et maximiser votre efficacité
-              </p>
+              
               <Button
                 onClick={onStartNewMission}
                 size="lg"

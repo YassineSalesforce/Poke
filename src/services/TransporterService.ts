@@ -13,6 +13,7 @@ export interface TransporterData {
   ensemblesTaken?: number; // Nombre d'ensembles pris
   ensemblesPrevisional?: number; // Nombre d'ensembles prévisionnels
   comment?: string; // Commentaire du contact
+  refusalCount?: number; // Nombre de refus historiques
   contact: {
     nom: string;
     telephone: string;
@@ -618,19 +619,16 @@ export class TransporterService {
    */
   private static generateSpecialites(typeVehicule: string): string[] {
     const type = typeVehicule?.toLowerCase() || '';
-    const specialites = [];
     
     if (type.includes('tautliner')) {
-      specialites.push('Transport express', 'Livraison rapide');
+      return ['Transport express', 'Livraison rapide'];
     } else if (type.includes('benne')) {
-      specialites.push('Transport sécurisé', 'Chargement rapide');
+      return ['Transport sécurisé', 'Chargement rapide'];
     } else if (type.includes('plateau')) {
-      specialites.push('Transport lourd', 'Équipements spéciaux');
+      return ['Transport lourd', 'Équipements spéciaux'];
     } else {
-      specialites.push('Transport général');
+      return ['Transport général'];
     }
-    
-    return specialites;
   }
 
   /**

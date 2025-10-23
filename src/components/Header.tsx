@@ -14,13 +14,14 @@ interface HeaderProps {
   onNewSearch: () => void;
   onManageRoutes?: () => void;
   onDashboard?: () => void;
+  onLogout: () => void;
 }
 
-export function Header({ onNewSearch, onManageRoutes, onDashboard }: HeaderProps) {
-  const { user, logout } = useAuth();
+export function Header({ onNewSearch, onManageRoutes, onDashboard, onLogout }: HeaderProps) {
+  const { user } = useAuth();
 
   const handleLogout = () => {
-    logout();
+    onLogout();
   };
 
   return (
@@ -45,7 +46,7 @@ export function Header({ onNewSearch, onManageRoutes, onDashboard }: HeaderProps
               cursor: 'pointer'
             }}
           >
-            TransportHub
+            Affréteur IA
           </a>
         </div>
 

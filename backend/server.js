@@ -330,6 +330,37 @@ app.post('/api/transporter-contacts', async (req, res) => {
   }
 });
 
+// Route pour compter TOUS les refus d'un transporteur pour un utilisateur (toutes recherches confondues)
+app.get('/api/transporter-refusals/:userId/:transporterId', async (req, res) => {
+  try {
+    const { userId, transporterId } = req.params;
+    console.log(`🔍 Comptage de TOUS les refus pour userId: ${userId}, transporterId: ${transporterId}`);
+    
+    // Compter TOUS les refus de ce transporteur pour cet utilisateur, toutes recherches confondues
+    const refusalCount = await TransporterContact.countDocuments({
+      userId: userId,
+      transporterId: transporterId,
+      status: 'no'
+    });
+    
+    console.log(`✅ Total de refus trouvés: ${refusalCount} pour transporteur ${transporterId} et utilisateur ${userId}`);
+    
+    // Afficher quelques exemples de refus pour debug
+    const sampleRefusals = await TransporterContact.find({
+      userId: userId,
+      transporterId: transporterId,
+      status: 'no'
+    }).limit(3).select('searchId createdAt transporterName');
+    
+    console.log(`📋 Exemples de refus:`, sampleRefusals);
+    
+    res.json({ transporterId, refusalCount });
+  } catch (error) {
+    console.error('Erreur lors du comptage des refus:', error);
+    res.status(500).json({ message: 'Erreur serveur' });
+  }
+});
+
 app.get('/api/transporter-contacts/:searchId', async (req, res) => {
   try {
     const { searchId } = req.params;

@@ -15,8 +15,17 @@ import {
   Package2,
   AlertTriangle,
   Lightbulb,
-  Target
+  Target,
+  LogOut
 } from 'lucide-react';
+import { useAuth } from '../contexts/AuthContext';
+import { Avatar, AvatarFallback, AvatarImage } from './ui/avatar';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from './ui/dropdown-menu';
 import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbPage, BreadcrumbSeparator } from './ui/breadcrumb';
 import { Alert, AlertDescription } from './ui/alert';
 import { GeocodingInput } from './GeocodingInput';
@@ -27,10 +36,12 @@ interface SearchFormProps {
   onBack: () => void;
   onSearch?: (criteria: any) => void;
   showBackButton?: boolean;
+  onLogout: () => void;
   userId?: string;
 }
 
-export function SearchForm({ onBack, onSearch, showBackButton = true, userId }: SearchFormProps) {
+export function SearchForm({ onBack, onSearch, showBackButton = true, onLogout, userId }: SearchFormProps) {
+  const { user } = useAuth();
   const [originInput, setOriginInput] = useState('');
   const [destinationInput, setDestinationInput] = useState('');
   const [originGeocodeResult, setOriginGeocodeResult] = useState<GeocodingResult | null>(null);
@@ -46,6 +57,10 @@ export function SearchForm({ onBack, onSearch, showBackButton = true, userId }: 
   });
   const [comments, setComments] = useState('');
   const [progress, setProgress] = useState(0);
+
+  const handleLogout = () => {
+    onLogout();
+  };
   const [showIncoherentAlert, setShowIncoherentAlert] = useState(false);
   const [canForceSubmit, setCanForceSubmit] = useState(false);
 
@@ -213,7 +228,7 @@ export function SearchForm({ onBack, onSearch, showBackButton = true, userId }: 
                   cursor: 'pointer'
                 }}
               >
-                TransportHub
+                Affréteur IA
               </a>
             </div>
 
@@ -236,6 +251,31 @@ export function SearchForm({ onBack, onSearch, showBackButton = true, userId }: 
               >
                 Lancer la recherche
               </Button>
+
+              {/* Profil utilisateur */}
+              <div className="flex items-center gap-3 pl-4 border-l border-gray-200">
+                <Avatar className="w-10 h-10">
+                  <AvatarImage src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${user?.email || 'default'}`} />
+                  <AvatarFallback style={{ backgroundColor: '#2B3A55', color: 'white' }}>
+                    {user?.firstName?.[0] || 'J'}{user?.lastName?.[0] || 'D'}
+                  </AvatarFallback>
+                </Avatar>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <div className="flex flex-col cursor-pointer">
+                      <span className="text-sm font-medium" style={{ color: 'white' }}>
+                        {user ? `${user.firstName || 'Jean'} ${user.lastName || 'Dupont'}` : 'Utilisateur'}
+                      </span>
+                    </div>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-56">
+                    <DropdownMenuItem onClick={handleLogout} className="cursor-pointer text-red-600">
+                      <LogOut className="w-4 h-4 mr-2" />
+                      Se déconnecter
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </div>
             </div>
           </div>
 

@@ -136,7 +136,7 @@ export class GeocodingService {
 
     const response = await fetch(`${this.SEARCH_URL}?${params}`, {
       headers: {
-        'User-Agent': 'TransportHub/1.0 (Transport Management System)'
+        'User-Agent': 'Affréteur IA/1.0 (Transport Management System)'
       }
     });
 
@@ -163,8 +163,21 @@ export class GeocodingService {
     // Générer le code de zone
     const zoneCode = this.generateZoneCode(countryCode, region, city, postalCode);
     
-    // Calculer la confiance basée sur l'importance et la précision
-    const confidence = Math.min(100, Math.max(0, (result.importance || 0) * 100));
+    // Calculer la confiance de manière plus intelligente
+    let confidence = (result.importance || 0) * 100;
+    
+    // Bonus de confiance si on a des informations clés
+    if (city && country) confidence += 30;
+    if (postalCode) confidence += 10;
+    if (zoneCode && zoneCode.length > 2) confidence += 20; // Si on a un code de zone précis
+    
+    // Si c'est une ville importante (type=city), augmenter la confiance
+    if (result.type === 'city' || result.type === 'municipality') {
+      confidence += 20;
+    }
+    
+    // Limiter entre 0 et 100
+    confidence = Math.min(100, Math.max(0, confidence));
     
     return {
       country,
@@ -179,28 +192,22 @@ export class GeocodingService {
     };
   }
 
-  /**
-   * Génère une adresse concise avec seulement : ville, région, pays, code de zone
-   */
+  
   private static generateConciseAddress(city: string, region: string, country: string, zoneCode: string): string {
     const parts = [];
     
-    // Ajouter la ville
     if (city) {
       parts.push(city);
     }
     
-    // Ajouter la région (seulement si différente de la ville)
     if (region && region !== city) {
       parts.push(region);
     }
     
-    // Ajouter le pays
     if (country) {
       parts.push(country);
     }
     
-    // Ajouter le code de zone
     if (zoneCode) {
       parts.push(`(${zoneCode})`);
     }
@@ -208,23 +215,18 @@ export class GeocodingService {
     return parts.join(', ');
   }
 
-  /**
-   * Génère un code de zone basé sur les informations géographiques
-   */
+  
   private static generateZoneCode(countryCode: string, region: string, city: string, postalCode: string): string {
     const baseCountryCode = this.COUNTRY_TO_ZONE_MAPPING[countryCode] || countryCode.toUpperCase();
     
-    // Pour la France, utiliser les codes de départements
     if (countryCode === 'fr' && postalCode) {
       const departmentCode = postalCode.substring(0, 2);
       
-      // Vérifier si le code postal semble correct
       if (this.isValidFrenchPostalCode(departmentCode)) {
         return `FR${departmentCode}`;
       }
     }
     
-    // Pour la France sans code postal valide, essayer de deviner par la ville
     if (countryCode === 'fr' && city) {
       const cityDepartmentCode = this.getDepartmentCodeByCity(city);
       if (cityDepartmentCode) {
@@ -232,7 +234,6 @@ export class GeocodingService {
       }
     }
     
-    // Pour la France sans code postal, essayer de deviner par la région
     if (countryCode === 'fr' && region) {
       for (const [regionName, departments] of Object.entries(this.FRENCH_REGION_TO_DEPARTMENT)) {
         if (region.toLowerCase().includes(regionName.toLowerCase())) {
@@ -241,20 +242,139 @@ export class GeocodingService {
       }
     }
     
-    // Pour les autres pays, utiliser le code pays + ville
     if (city) {
-      // Mapping spécial pour certaines villes importantes
       const specialCityMappings: { [key: string]: string } = {
-        'barcelona': '09',  // Barcelone → ES09
+        'barcelona': '08',  // Barcelone → ES08
+        'barcelone': '08',  // Barcelone (français) → ES08
         'madrid': '13',     // Madrid → ES13
         'valencia': '46',   // Valence → ES46
+        'valence': '46',    // Valence (français) → ES46
         'seville': '41',    // Séville → ES41
+        'sevilla': '41',    // Séville (espagnol) → ES41
+        'séville': '41',    // Séville (français) → ES41
         'bilbao': '48',     // Bilbao → ES48
         'zaragoza': '50',   // Saragosse → ES50
         'malaga': '29',     // Malaga → ES29
         'murcia': '30',     // Murcie → ES30
+        'murcie': '30',     // Murcie (français) → ES30
         'palma': '07',      // Palma → ES07
         'las palmas': '35', // Las Palmas → ES35
+        'alicante': '03',   // Alicante → ES03
+        'cordoba': '14',    // Cordoue → ES14
+        'valladolid': '47', // Valladolid → ES47
+        'vigo': '36',       // Vigo → ES36
+        'gijon': '33',      // Gijón → ES33
+        'hospitalet': '08', // L'Hospitalet → ES08 (Barcelone)
+        'vitoria': '01',    // Vitoria → ES01
+        'coruña': '15',     // La Coruña → ES15
+        'granada': '18',    // Grenade → ES18
+        'santander': '39',  // Santander → ES39
+        'almeria': '04',    // Almería → ES04
+        'pamplona': '31',   // Pampelune → ES31
+        'castellon': '12',  // Castellón → ES12
+        'tarragona': '43',  // Tarragone → ES43
+        'girona': '17',     // Gérone → ES17
+        'lleida': '25',     // Lérida → ES25
+        'badajoz': '06',    // Badajoz → ES06
+        'salamanca': '37',  // Salamanque → ES37
+        'huelva': '21',     // Huelva → ES21
+        'logroño': '26',    // Logroño → ES26
+        'caceres': '10',    // Cáceres → ES10
+        'san sebastian': '20', // Saint-Sébastien → ES20
+        
+        // FRANCE - Basé sur vos zones FR01-FR95
+        'paris': '75',      // Paris → FR75
+        'lyon': '69',       // Lyon → FR69
+        'marseille': '13',  // Marseille → FR13
+        'toulouse': '31',   // Toulouse → FR31
+        'nice': '06',       // Nice → FR06
+        'nantes': '44',     // Nantes → FR44
+        'strasbourg': '67', // Strasbourg → FR67
+        'montpellier': '34', // Montpellier → FR34
+        'lille': '59',      // Lille → FR59
+        'rennes': '35',     // Rennes → FR35
+        'reims': '51',      // Reims → FR51
+        'saint-étienne': '42', // Saint-Étienne → FR42
+        'le havre': '76',   // Le Havre → FR76
+        'toulon': '83',     // Toulon → FR83
+        'grenoble': '38',   // Grenoble → FR38
+        'dijon': '21',      // Dijon → FR21
+        'angers': '49',     // Angers → FR49
+        'nîmes': '30',      // Nîmes → FR30
+        'villeurbanne': '69', // Villeurbanne → FR69
+        'saint-denis': '93', // Saint-Denis → FR93
+        'le mans': '72',    // Le Mans → FR72
+        'aix-en-provence': '13', // Aix-en-Provence → FR13
+        'clermont-ferrand': '63', // Clermont-Ferrand → FR63
+        'brest': '29',      // Brest → FR29
+        'tours': '37',     // Tours → FR37
+        'limoges': '87',    // Limoges → FR87
+        'amiens': '80',     // Amiens → FR80
+        'annecy': '74',     // Annecy → FR74
+        'perpignan': '66',  // Perpignan → FR66
+        'boulogne-billancourt': '92', // Boulogne-Billancourt → FR92
+        'orléans': '45',    // Orléans → FR45
+        'mulhouse': '68',   // Mulhouse → FR68
+        'rouen': '76',      // Rouen → FR76
+        'caen': '14',       // Caen → FR14
+        'nancy': '54',      // Nancy → FR54
+        'saint-pierre': '974', // Saint-Pierre → FR974
+        'argenteuil': '95', // Argenteuil → FR95
+        'roubaix': '59',    // Roubaix → FR59
+        'tourcoing': '59',  // Tourcoing → FR59
+        'montreuil': '93',  // Montreuil → FR93
+        'avignon': '84',    // Avignon → FR84
+        'nanterre': '92',   // Nanterre → FR92
+        'créteil': '94',    // Créteil → FR94
+        'dunkerque': '59',  // Dunkerque → FR59
+        'poitiers': '86',   // Poitiers → FR86
+        'asnières-sur-seine': '92', // Asnières-sur-Seine → FR92
+        'versailles': '78', // Versailles → FR78
+        'courbevoie': '92', // Courbevoie → FR92
+        'vitry-sur-seine': '94', // Vitry-sur-Seine → FR94
+        'colombes': '92',   // Colombes → FR92
+        'aulnay-sous-bois': '93', // Aulnay-sous-Bois → FR93
+        'la rochelle': '17', // La Rochelle → FR17
+        'champigny-sur-marne': '94', // Champigny-sur-Marne → FR94
+        'rueil-malmaison': '92', // Rueil-Malmaison → FR92
+        'boulogne-sur-mer': '62', // Boulogne-sur-Mer → FR62
+        'pessac': '33',     // Pessac → FR33
+        'saint-maur-des-fossés': '94', // Saint-Maur-des-Fossés → FR94
+        'calais': '62',     // Calais → FR62
+        'issy-les-moulineaux': '92', // Issy-les-Moulineaux → FR92
+        'lévigné': '59',    // Lévigné → FR59
+        'noisy-le-grand': '93', // Noisy-le-Grand → FR93
+        'sevran': '93',     // Sevran → FR93
+        'cergy': '95',      // Cergy → FR95
+        'pantin': '93',     // Pantin → FR93
+        'levallois-perret': '92', // Levallois-Perret → FR92
+        'troyes': '10',     // Troyes → FR10
+        'antoine': '92',    // Antoine → FR92
+        'neuilly-sur-seine': '92', // Neuilly-sur-Seine → FR92
+        'clichy': '92',     // Clichy → FR92
+        'pierrefitte-sur-seine': '93', // Pierrefitte-sur-Seine → FR93
+        'châlons-en-champagne': '51', // Châlons-en-Champagne → FR51
+        'saint-ouen': '93', // Saint-Ouen → FR93
+        'corbeil-essonnes': '91', // Corbeil-Essonnes → FR91
+        'bayonne': '64',    // Bayonne → FR64
+        'bourges': '18',    // Bourges → FR18
+        'cannes': '06',     // Cannes → FR06
+        'colmar': '68',     // Colmar → FR68
+        'digne-les-bains': '04', // Digne-les-Bains → FR04
+        'draguignan': '83', // Draguignan → FR83
+        'évreux': '27',     // Évreux → FR27
+        'foix': '09',       // Foix → FR09
+        'gap': '05',        // Gap → FR05
+        'lons-le-saunier': '39', // Lons-le-Saunier → FR39
+        'mâcon': '71',      // Mâcon → FR71
+        'mende': '48',      // Mende → FR48
+        'nevers': '58',     // Nevers → FR58
+        'pau': '64',        // Pau → FR64
+        'privas': '07',     // Privas → FR07
+        'saint-brieuc': '22', // Saint-Brieuc → FR22
+        'tarbes': '65',     // Tarbes → FR65
+        'tulle': '19',      // Tulle → FR19
+        'vesoul': '70',     // Vesoul → FR70
       };
       
       const cityLower = city.toLowerCase();
@@ -262,7 +382,6 @@ export class GeocodingService {
         return `${baseCountryCode}${specialCityMappings[cityLower]}`;
       }
       
-      // Sinon, utiliser les 3 premières lettres
       const cityCode = city.substring(0, 3).toUpperCase();
       return `${baseCountryCode}${cityCode}`;
     }
@@ -270,9 +389,7 @@ export class GeocodingService {
     return baseCountryCode;
   }
 
-  /**
-   * Vérifie si un code postal français semble valide
-   */
+ 
   private static isValidFrenchPostalCode(departmentCode: string): boolean {
     const validDepartments = [
       '01', '02', '03', '04', '05', '06', '07', '08', '09', '10',
@@ -289,9 +406,7 @@ export class GeocodingService {
     return validDepartments.includes(departmentCode);
   }
 
-  /**
-   * Obtient le code département par le nom de la ville
-   */
+ 
   private static getDepartmentCodeByCity(city: string): string | null {
     const cityToDepartment: { [key: string]: string } = {
       'bordeaux': '33',
@@ -394,9 +509,7 @@ export class GeocodingService {
     return cityToDepartment[normalizedCity] || null;
   }
 
-  /**
-   * Obtient des suggestions d'adresses en temps réel
-   */
+ 
   static async getSuggestions(input: string): Promise<GeocodingResult[]> {
     if (!input || input.length < 3) {
       return [];
@@ -412,9 +525,7 @@ export class GeocodingService {
     }
   }
 
-  /**
-   * Supprime les suggestions en double basées sur la ville et le pays
-   */
+ 
   private static removeDuplicateSuggestions(results: NominatimResult[]): NominatimResult[] {
     const seen = new Set<string>();
     const uniqueResults: NominatimResult[] = [];
@@ -434,9 +545,7 @@ export class GeocodingService {
     return uniqueResults.slice(0, 5); // Limiter à 5 suggestions uniques
   }
 
-  /**
-   * Géocode inversé : coordonnées -> adresse
-   */
+
   static async reverseGeocode(lat: number, lon: number): Promise<GeocodingResult> {
     try {
       const params = new URLSearchParams({
@@ -449,7 +558,7 @@ export class GeocodingService {
 
       const response = await fetch(`${this.REVERSE_GEOCODE_URL}?${params}`, {
         headers: {
-          'User-Agent': 'TransportHub/1.0 (Transport Management System)'
+          'User-Agent': 'Affréteur IA/1.0 (Transport Management System)'
         }
       });
 
@@ -465,16 +574,12 @@ export class GeocodingService {
     }
   }
 
-  /**
-   * Valide si une adresse est complète et fiable
-   */
+ 
   static isCompleteAddress(result: GeocodingResult): boolean {
     return !!(result.country && result.city && result.confidence > 30);
   }
 
-  /**
-   * Retourne un résultat par défaut
-   */
+ 
   private static getDefaultResult(): GeocodingResult {
     return {
       country: '',
@@ -487,9 +592,7 @@ export class GeocodingService {
     };
   }
 
-  /**
-   * Formate l'adresse pour l'affichage
-   */
+
   static formatAddressForDisplay(result: GeocodingResult): string {
     const parts = [];
     
@@ -501,9 +604,7 @@ export class GeocodingService {
     return parts.join(', ');
   }
 
-  /**
-   * Obtient le niveau de confiance sous forme de texte
-   */
+
   static getConfidenceLevel(confidence: number): string {
     if (confidence >= 80) return 'Très élevée';
     if (confidence >= 60) return 'Élevée';
@@ -512,9 +613,7 @@ export class GeocodingService {
     return 'Très faible';
   }
 
-  /**
-   * Obtient la couleur du niveau de confiance
-   */
+  
   static getConfidenceColor(confidence: number): string {
     if (confidence >= 80) return 'text-green-600';
     if (confidence >= 60) return 'text-blue-600';

@@ -24,7 +24,8 @@ export class UserSearchHistoryService {
 
   static async getUserSearches(userId: string): Promise<UserSearch[]> {
     try {
-      const response = await fetch(`${this.API_BASE}/user-searches/${userId}`);
+      // Demander toutes les recherches sans limite
+      const response = await fetch(`${this.API_BASE}/user-searches/${userId}?limit=1000`);
       if (!response.ok) {
         throw new Error(`Erreur HTTP: ${response.status}`);
       }

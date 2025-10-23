@@ -23,7 +23,7 @@ import { Toaster } from './components/ui/sonner';
 type Screen = 'landing' | 'dashboard' | 'search-form' | 'search-results' | 'carrier-returns' | 'mission-orders' | 'route-management' | 'process-overview';
 
 function AppContent() {
-  const { user, isAuthenticated, isLoading } = useAuth();
+  const { user, isAuthenticated, isLoading, logout } = useAuth();
   const [currentScreen, setCurrentScreen] = useState<Screen>('landing');
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [showLogin, setShowLogin] = useState(false);
@@ -187,6 +187,14 @@ function AppContent() {
     setIsDrawerOpen(false);
   };
 
+  const handleLogout = () => {
+    logout();
+    setCurrentScreen('landing');
+    setSearchCriteria(null);
+    setCarrierReturns([]);
+    setHasSearched(false);
+  };
+
   // Afficher le loading pendant la vérification de l'authentification
   if (isLoading) {
     return (
@@ -244,7 +252,7 @@ function AppContent() {
             transition={{ duration: 0.3 }}
             className="flex flex-col min-h-screen"
           >
-            <Header onNewSearch={handleNewSearch} onManageRoutes={handleGoToRouteManagement} onDashboard={handleBackToDashboard} />
+            <Header onNewSearch={handleNewSearch} onManageRoutes={handleGoToRouteManagement} onDashboard={handleBackToDashboard} onLogout={handleLogout} />
 
             {/* Main Content */}
             <main className="flex-1 p-8">
@@ -294,7 +302,7 @@ function AppContent() {
             exit={{ opacity: 0, x: 20 }}
             transition={{ duration: 0.3 }}
           >
-            <SearchForm onBack={handleBackToDashboard} onSearch={handleSearchSubmit} showBackButton={true} userId={user?.id} />
+            <SearchForm onBack={handleBackToDashboard} onSearch={handleSearchSubmit} showBackButton={true} userId={user?.id} onLogout={handleLogout} />
           </motion.div>
         )}
 
@@ -311,6 +319,7 @@ function AppContent() {
               onBackToDashboard={handleBackToDashboard}
               onNext={handleGoToCarrierReturns} 
               searchCriteria={searchCriteria}
+              onLogout={handleLogout}
             />
             {console.log('📤 App.tsx - Passage de searchCriteria à SearchResults:', searchCriteria)}
           </motion.div>
@@ -330,6 +339,7 @@ function AppContent() {
               onNext={handleGoToMissionOrders}
               searchCriteria={searchCriteria}
               searchId={searchCriteria?.searchId}
+              onLogout={handleLogout}
             />
           </motion.div>
         )}
@@ -348,6 +358,7 @@ function AppContent() {
               searchCriteria={searchCriteria}
               carrierReturns={carrierReturns}
               searchId={searchCriteria?.searchId}
+              onLogout={handleLogout}
             />
           </motion.div>
         )}
@@ -360,7 +371,7 @@ function AppContent() {
             exit={{ opacity: 0, x: -20 }}
             transition={{ duration: 0.3 }}
           >
-            <RouteManagement onBackToDashboard={handleBackToDashboard} />
+            <RouteManagement onBackToDashboard={handleBackToDashboard} onLogout={handleLogout} />
           </motion.div>
         )}
 
@@ -376,6 +387,7 @@ function AppContent() {
               onBackToDashboard={handleBackToDashboard} 
               onStartNewMission={handleNewSearch}
               onNavigateToStep={handleNavigateFromProcess}
+              onLogout={handleLogout}
             />
           </motion.div>
         )}
