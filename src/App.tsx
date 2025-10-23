@@ -284,14 +284,14 @@ function AppContent() {
                   Dernière mise à jour : 20/10/2025 10h15
                 </p>
                 <div className="flex items-center gap-4">
-                  <button
+                  {/* Main Content<button
                     onClick={handleGoToProcessOverview}
                     className="text-sm flex items-center gap-1 hover:underline transition-colors"
                     style={{ color: '#2B3A55' }}
                   >
                     Vue globale du processus
                     <ExternalLink className="w-3 h-3" />
-                  </button>
+                  </button> */}
                 </div>
               </div>
             </footer>
