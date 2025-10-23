@@ -79,6 +79,8 @@ const missionDetailsSchema = new mongoose.Schema({
   deliveryTime: { type: String, required: true },
   estimatedPrice: { type: Number, required: true },
   notes: { type: String },
+  phone: { type: String },
+  email: { type: String },
   createdAt: { type: Date, default: Date.now },
   updatedAt: { type: Date, default: Date.now }
 });
