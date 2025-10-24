@@ -290,30 +290,54 @@ export function RouteManagement({ onBackToDashboard, onLogout }: RouteManagement
     }
   };
 
-  const handleAddSuggestedRoute = (suggested: SuggestedRoute) => {
-    // Create a new route from suggestion
-    const newRoute: RouteData = {
-      id: Date.now().toString(),
-      carrierId: suggested.carrierName === 'TRANSARLE' ? '1' : suggested.carrierName === 'CHEVALIER TRANSPORTS' ? '2' : '3',
-      carrierName: suggested.carrierName,
-      originCountry: 'FR',
-      originRegion: '',
-      originDepartment: suggested.originDepartment,
-      originCity: '',
-      destinationCountry: 'FR',
-      destinationRegion: '',
-      destinationDepartment: suggested.destinationDepartment,
-      destinationCity: '',
-      vehicleType: suggested.vehicleType,
-      isActive: true,
-      createdAt: new Date().toLocaleDateString('fr-FR'),
-    };
-    
-    setRoutes(prev => [...prev, newRoute]);
-    toast.success('Route ajoutée depuis les suggestions', {
-      description: `${suggested.carrierName} – ${suggested.route}`,
-      icon: <CheckCircle className="w-4 h-4" />,
-    });
+  const handleAddSuggestedRoute = async (suggested: SuggestedRoute) => {
+    try {
+      if (!user) return;
+      
+      // Create route in database
+      const savedRoute = await TransporterRouteService.createRoute({
+        userId: user.id,
+        carrierId: suggested.carrierName === 'TRANSARLE' ? '1' : suggested.carrierName === 'CHEVALIER TRANSPORTS' ? '2' : '3',
+        carrierName: suggested.carrierName,
+        originCountry: 'FR',
+        originRegion: '',
+        originDepartment: suggested.originDepartment,
+        originCity: '',
+        destinationCountry: 'FR',
+        destinationRegion: '',
+        destinationDepartment: suggested.destinationDepartment,
+        destinationCity: '',
+        vehicleType: suggested.vehicleType,
+        isActive: true,
+      });
+      
+      // Add to local state with real database ID
+      const newRoute: RouteData = {
+        id: savedRoute._id || '',
+        carrierId: savedRoute.carrierId,
+        carrierName: savedRoute.carrierName,
+        originCountry: savedRoute.originCountry,
+        originRegion: savedRoute.originRegion,
+        originDepartment: savedRoute.originDepartment,
+        originCity: savedRoute.originCity,
+        destinationCountry: savedRoute.destinationCountry,
+        destinationRegion: savedRoute.destinationRegion,
+        destinationDepartment: savedRoute.destinationDepartment,
+        destinationCity: savedRoute.destinationCity,
+        vehicleType: savedRoute.vehicleType,
+        isActive: savedRoute.isActive,
+        createdAt: new Date(savedRoute.createdAt).toLocaleDateString('fr-FR'),
+      };
+      
+      setRoutes(prev => [...prev, newRoute]);
+      toast.success('Route ajoutée depuis les suggestions', {
+        description: `${suggested.carrierName} – ${suggested.route}`,
+        icon: <CheckCircle className="w-4 h-4" />,
+      });
+    } catch (error) {
+      console.error('Erreur lors de l\'ajout de la route suggérée:', error);
+      toast.error('Erreur lors de l\'ajout de la route');
+    }
   };
 
   const handleResetFilters = () => {
