@@ -14,9 +14,7 @@ export interface UserSearch {
 export class UserSearchService {
   private static readonly API_BASE = 'http://localhost:5001/api';
 
-  /**
-   * Sauvegarde une recherche utilisateur
-   */
+
   static async saveSearch(searchData: Omit<UserSearch, '_id' | 'createdAt' | 'updatedAt'>): Promise<UserSearch> {
     try {
       const response = await fetch(`${this.API_BASE}/user-searches`, {
@@ -38,9 +36,7 @@ export class UserSearchService {
     }
   }
 
-  /**
-   * Récupère les dernières recherches d'un utilisateur
-   */
+
   static async getRecentSearches(userId: string, limit: number = 5): Promise<UserSearch[]> {
     try {
       const response = await fetch(`${this.API_BASE}/user-searches/${userId}?limit=${limit}`);
@@ -56,9 +52,7 @@ export class UserSearchService {
     }
   }
 
-  /**
-   * Supprime une recherche
-   */
+
   static async deleteSearch(searchId: string): Promise<void> {
     try {
       const response = await fetch(`${this.API_BASE}/user-searches/${searchId}`, {

@@ -33,7 +33,6 @@ export function RegisterForm({ onClose, onSwitchToLogin }: RegisterFormProps) {
 
     try {
       await register(userData);
-      // La redirection se fait automatiquement via AuthContext
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Erreur lors de l\'inscription');
     } finally {

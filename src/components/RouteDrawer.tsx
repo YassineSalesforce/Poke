@@ -63,7 +63,6 @@ export function RouteDrawer({ route, isOpen, onClose, onSave }: RouteDrawerProps
       console.log('✅ RouteDrawer - Mise à jour du formulaire avec:', route);
       setFormData(route);
     } else {
-      // Reset form for new route
       console.log('🆕 RouteDrawer - Nouveau formulaire');
       setFormData({
         carrierId: '',

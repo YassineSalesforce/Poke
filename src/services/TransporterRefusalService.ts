@@ -1,9 +1,7 @@
 export class TransporterRefusalService {
   private static readonly API_BASE = 'http://localhost:5001/api';
 
-  /**
-   * Récupère le nombre de refus d'un transporteur pour un utilisateur donné
-   */
+  
   static async getRefusalCount(userId: string, transporterId: string): Promise<number> {
     try {
       const url = `${this.API_BASE}/transporter-refusals/${userId}/${transporterId}`;
@@ -23,13 +21,10 @@ export class TransporterRefusalService {
     }
   }
 
-  /**
-   * Récupère les refus pour plusieurs transporteurs
-   */
+  
   static async getRefusalCounts(userId: string, transporterIds: string[]): Promise<Map<string, number>> {
     const refusalMap = new Map<string, number>();
     
-    // Récupérer les refus pour chaque transporteur en parallèle
     const promises = transporterIds.map(async (id) => {
       const count = await this.getRefusalCount(userId, id);
       refusalMap.set(id, count);

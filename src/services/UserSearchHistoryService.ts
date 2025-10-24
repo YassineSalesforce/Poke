@@ -24,7 +24,6 @@ export class UserSearchHistoryService {
 
   static async getUserSearches(userId: string): Promise<UserSearch[]> {
     try {
-      // Demander toutes les recherches sans limite
       const response = await fetch(`${this.API_BASE}/user-searches/${userId}?limit=1000`);
       if (!response.ok) {
         throw new Error(`Erreur HTTP: ${response.status}`);
@@ -38,10 +37,8 @@ export class UserSearchHistoryService {
 
   static async getSearchWithStatus(search: UserSearch): Promise<SearchWithStatus | null> {
     try {
-      // Récupérer les contacts liés à cette recherche
       const contactsResponse = await fetch(`${this.API_BASE}/transporter-contacts/${search._id}`);
       if (!contactsResponse.ok) {
-        // Si pas de contacts, retourner la recherche avec statut par défaut
         return {
           ...search,
           status: 'pending',
@@ -53,11 +50,9 @@ export class UserSearchHistoryService {
       }
       const contacts = await contactsResponse.json();
 
-      // Récupérer les détails de mission pour vérifier si tous les formulaires sont remplis
       const missionDetailsResponse = await fetch(`${this.API_BASE}/mission-details/${search._id}`);
       const missionDetails = missionDetailsResponse.ok ? await missionDetailsResponse.json() : [];
 
-      // Calculer les volumes
       const confirmedVolume = contacts
         .filter((c: any) => c.status === 'yes')
         .reduce((sum: number, c: any) => sum + c.volume, 0);
@@ -69,14 +64,12 @@ export class UserSearchHistoryService {
       const remainingVolume = search.quantite - confirmedVolume - pendingVolume;
       const progressPercentage = Math.round(((confirmedVolume + pendingVolume) / search.quantite) * 100);
 
-      // Vérifier si tous les transporteurs confirmés ont rempli leur formulaire
       const confirmedCarriers = contacts.filter((c: any) => c.status === 'yes' && c.volume > 0);
       const carriersWithForms = missionDetails.map((detail: any) => detail.transporterId);
       const allFormsCompleted = confirmedCarriers.every((carrier: any) => 
         carriersWithForms.includes(carrier.transporterId)
       );
 
-      // Déterminer le statut selon la nouvelle logique
       let status: 'completed' | 'in-progress' | 'pending';
       
       if (progressPercentage >= 100 && allFormsCompleted && pendingVolume === 0) {
@@ -118,12 +111,10 @@ export class UserSearchHistoryService {
     try {
       const searches = await this.getUserSearches(userId);
       
-      // Trier par date de création (plus récent en premier)
       const sortedSearches = searches
         .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
         .slice(0, limit);
 
-      // Récupérer le statut pour chaque recherche
       const searchesWithStatus = await Promise.all(
         sortedSearches.map(search => this.getSearchWithStatus(search))
       );
@@ -139,7 +130,6 @@ export class UserSearchHistoryService {
     try {
       const searches = await this.getUserSearches(userId);
       
-      // Récupérer le statut pour chaque recherche
       const searchesWithStatus = await Promise.all(
         searches.map(search => this.getSearchWithStatus(search))
       );

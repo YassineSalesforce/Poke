@@ -17,19 +17,17 @@ export function RecentHistory({ userId, onSearchClick }: RecentHistoryProps) {
   const [totalPages, setTotalPages] = useState(1);
   const [totalSearches, setTotalSearches] = useState(0);
   
-  const itemsPerPage = 5; // Nombre d'éléments par page
+  const itemsPerPage = 5; 
 
   useEffect(() => {
     const loadRecentSearches = async () => {
       try {
         console.log('🔄 Chargement des recherches récentes pour userId:', userId);
         
-        // Charger toutes les recherches pour calculer le total
         const allSearches = await UserSearchHistoryService.getUserSearchHistory(userId);
         setTotalSearches(allSearches.length);
         setTotalPages(Math.ceil(allSearches.length / itemsPerPage));
         
-        // Charger seulement les recherches de la page courante
         const startIndex = (currentPage - 1) * itemsPerPage;
         const endIndex = startIndex + itemsPerPage;
         const pageSearches = allSearches.slice(startIndex, endIndex);
@@ -77,14 +75,11 @@ export function RecentHistory({ userId, onSearchClick }: RecentHistoryProps) {
   };
 
   const extractCityAndPostalCode = (fullAddress: string) => {
-    // Si pas d'adresse, retourner une valeur par défaut
     if (!fullAddress) return 'Adresse non définie';
     
-    // Extraire la ville et le code postal de l'adresse complète
     const parts = fullAddress.split(',');
     if (parts.length >= 1) {
       const cityPart = parts[0].trim();
-      // Si la ville contient un code postal (ex: "Bordeaux 33000"), on l'extrait
       const cityMatch = cityPart.match(/^(.+?)\s+(\d{5})$/);
       if (cityMatch) {
         return `${cityMatch[1]} ${cityMatch[2]}`;
@@ -109,7 +104,6 @@ export function RecentHistory({ userId, onSearchClick }: RecentHistoryProps) {
       await UserSearchHistoryService.deleteSearchHistory(searchId);
       console.log('✅ Recherche supprimée avec succès');
       
-      // Recharger les recherches
       const allSearches = await UserSearchHistoryService.getUserSearchHistory(userId);
       console.log('📋 Nombre de recherches après suppression:', allSearches.length);
       
@@ -137,7 +131,6 @@ export function RecentHistory({ userId, onSearchClick }: RecentHistoryProps) {
   const generatePageNumbers = (): (number | string)[] => {
     const pages: (number | string)[] = [];
     
-    // Toujours afficher toutes les pages
     for (let i = 1; i <= totalPages; i++) {
       pages.push(i);
     }

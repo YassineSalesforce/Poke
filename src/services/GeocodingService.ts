@@ -45,7 +45,6 @@ export class GeocodingService {
   private static readonly REVERSE_GEOCODE_URL = `${this.NOMINATIM_BASE_URL}/reverse`;
   private static readonly SEARCH_URL = `${this.NOMINATIM_BASE_URL}/search`;
 
-  // Mapping des codes de pays vers les codes de zones de transport
   private static readonly COUNTRY_TO_ZONE_MAPPING: { [key: string]: string } = {
     'fr': 'FR',
     'es': 'ES',
@@ -94,9 +93,7 @@ export class GeocodingService {
     'Mayotte': ['976']
   };
 
-  /**
-   * Géocode une adresse en utilisant l'API Nominatim
-   */
+  
   static async geocodeAddress(address: string): Promise<GeocodingResult> {
     if (!address || address.trim() === '') {
       return this.getDefaultResult();
@@ -109,7 +106,6 @@ export class GeocodingService {
         return this.getDefaultResult();
       }
 
-      // Prendre le premier résultat (le plus pertinent)
       const result = results[0];
       return this.convertNominatimToGeocodingResult(result);
     } catch (error) {
@@ -118,9 +114,7 @@ export class GeocodingService {
     }
   }
 
-  /**
-   * Recherche une adresse via l'API Nominatim
-   */
+ 
   private static async searchAddress(query: string): Promise<NominatimResult[]> {
     const params = new URLSearchParams({
       q: query,
@@ -129,9 +123,9 @@ export class GeocodingService {
       limit: '10',
       countrycodes: 'fr,es,de,it,be,nl,ch,at,lu,pt,gb,dk,se,fi,pl,cz,hu,ro,si,sk,lt,lv,gr',
       'accept-language': 'fr,en',
-      dedupe: '1', // Éviter les doublons
-      bounded: '0', // Ne pas limiter à une zone géographique
-      polygon_geojson: '0' // Pas besoin de géométrie complexe
+      dedupe: '1', 
+      bounded: '0', 
+      polygon_geojson: '0' 
     });
 
     const response = await fetch(`${this.SEARCH_URL}?${params}`, {
@@ -147,36 +141,28 @@ export class GeocodingService {
     return await response.json();
   }
 
-  /**
-   * Convertit un résultat Nominatim en GeocodingResult
-   */
+  
   private static convertNominatimToGeocodingResult(result: NominatimResult): GeocodingResult {
     const address = result.address || {};
     
-    // Extraire les informations de base
     const country = address.country || '';
     const countryCode = address.country_code?.toLowerCase() || '';
     const region = address.state || address.region || '';
     const city = address.city || address.town || address.village || address.municipality || '';
     const postalCode = address.postcode || '';
     
-    // Générer le code de zone
     const zoneCode = this.generateZoneCode(countryCode, region, city, postalCode);
     
-    // Calculer la confiance de manière plus intelligente
     let confidence = (result.importance || 0) * 100;
     
-    // Bonus de confiance si on a des informations clés
     if (city && country) confidence += 30;
     if (postalCode) confidence += 10;
-    if (zoneCode && zoneCode.length > 2) confidence += 20; // Si on a un code de zone précis
+    if (zoneCode && zoneCode.length > 2) confidence += 20; 
     
-    // Si c'est une ville importante (type=city), augmenter la confiance
     if (result.type === 'city' || result.type === 'municipality') {
       confidence += 20;
     }
     
-    // Limiter entre 0 et 100
     confidence = Math.min(100, Math.max(0, confidence));
     
     return {

@@ -4,7 +4,6 @@ import axios from 'axios';
 // Configuration de l'API
 const API_BASE_URL = 'http://localhost:5001/api';
 
-// Types
 interface User {
   id: string;
   firstName: string;
@@ -34,10 +33,8 @@ interface RegisterData {
   phone?: string;
 }
 
-// Création du contexte
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-// Hook personnalisé pour utiliser le contexte
 export const useAuth = () => {
   const context = useContext(AuthContext);
   if (context === undefined) {
@@ -46,7 +43,6 @@ export const useAuth = () => {
   return context;
 };
 
-// Provider du contexte
 interface AuthProviderProps {
   children: ReactNode;
 }
@@ -56,10 +52,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [token, setToken] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Vérifier si l'utilisateur est authentifié
   const isAuthenticated = !!user && !!token;
 
-  // Configuration d'axios pour inclure le token dans les requêtes
   useEffect(() => {
     if (token) {
       axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
@@ -68,18 +62,15 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     }
   }, [token]);
 
-  // Vérifier le token au chargement de l'application
   useEffect(() => {
     const storedToken = localStorage.getItem('token');
     if (storedToken) {
       setToken(storedToken);
-      // Vérifier si le token est valide en récupérant le profil
       axios.get(`${API_BASE_URL}/auth/profile`)
         .then(response => {
           setUser(response.data.user);
         })
         .catch(() => {
-          // Token invalide, nettoyer le localStorage
           localStorage.removeItem('token');
           setToken(null);
         })
@@ -91,7 +82,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     }
   }, []);
 
-  // Fonction de connexion
   const login = async (email: string, password: string) => {
     try {
       const response = await axios.post(`${API_BASE_URL}/auth/login`, {
@@ -109,7 +99,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     }
   };
 
-  // Fonction d'inscription
   const register = async (userData: RegisterData) => {
     try {
       const response = await axios.post(`${API_BASE_URL}/auth/register`, userData);
@@ -124,7 +113,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     }
   };
 
-  // Fonction de déconnexion
   const logout = () => {
     setUser(null);
     setToken(null);

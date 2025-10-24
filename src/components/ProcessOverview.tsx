@@ -79,14 +79,12 @@ export function ProcessOverview({ onBackToDashboard, onStartNewMission, onNaviga
     onLogout();
   };
 
-  // Charger les statistiques des contacts
   useEffect(() => {
     const loadContactStats = async () => {
       try {
         setLoadingStats(true);
         console.log('🔄 Chargement des statistiques de contacts pour userId:', userId);
         
-        // Récupérer toutes les recherches de l'utilisateur
         const allSearches = await UserSearchHistoryService.getUserSearchHistory(userId);
         console.log('📊 Recherches trouvées:', allSearches.length);
         
@@ -98,11 +96,9 @@ export function ProcessOverview({ onBackToDashboard, onStartNewMission, onNaviga
         let totalRoutes = 0;
         let totalSearchVolume = 0;
         
-        // Calculer le volume total de toutes les recherches
         totalSearchVolume = allSearches.reduce((sum, search) => sum + (search.quantite || 0), 0);
         console.log('📦 Volume total des recherches:', totalSearchVolume);
         
-        // Pour chaque recherche, récupérer les contacts
         for (const search of allSearches) {
           try {
             const contacts = await TransporterContactService.getContactsBySearch(search._id);
@@ -129,7 +125,6 @@ export function ProcessOverview({ onBackToDashboard, onStartNewMission, onNaviga
           }
         }
         
-        // Récupérer les routes de l'utilisateur
         try {
           const userRoutes = await TransporterRouteService.getRoutesByUser(userId);
           totalRoutes = userRoutes.length;

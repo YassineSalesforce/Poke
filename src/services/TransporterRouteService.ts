@@ -20,9 +20,7 @@ export interface TransporterRoute {
 export class TransporterRouteService {
   private static readonly API_BASE = 'http://localhost:5001/api';
 
-  /**
-   * Créer une nouvelle route
-   */
+  
   static async createRoute(routeData: Omit<TransporterRoute, '_id' | 'createdAt' | 'updatedAt'>): Promise<TransporterRoute> {
     try {
       const response = await fetch(`${this.API_BASE}/transporter-routes`, {
@@ -44,9 +42,7 @@ export class TransporterRouteService {
     }
   }
 
-  /**
-   * Récupérer les routes d'un utilisateur
-   */
+ 
   static async getRoutesByUser(userId: string): Promise<TransporterRoute[]> {
     try {
       const response = await fetch(`${this.API_BASE}/transporter-routes/${userId}`);
@@ -62,9 +58,7 @@ export class TransporterRouteService {
     }
   }
 
-  /**
-   * Mettre à jour une route
-   */
+
   static async updateRoute(id: string, routeData: Partial<TransporterRoute>): Promise<TransporterRoute> {
     try {
       const response = await fetch(`${this.API_BASE}/transporter-routes/${id}`, {
@@ -86,9 +80,7 @@ export class TransporterRouteService {
     }
   }
 
-  /**
-   * Supprimer une route
-   */
+  
   static async deleteRoute(id: string): Promise<void> {
     try {
       const response = await fetch(`${this.API_BASE}/transporter-routes/${id}`, {

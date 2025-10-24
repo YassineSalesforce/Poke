@@ -29,7 +29,6 @@ export async function getUserSearchesCollection(): Promise<Collection> {
   return db.collection('user_searches');
 }
 
-// Interface pour les recherches utilisateur
 export interface UserSearchDocument {
   _id?: string;
   userId: string;

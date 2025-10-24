@@ -9,7 +9,7 @@ export interface TransporterContact {
   status: 'yes' | 'pending' | 'no';
   volume: number;
   comment?: string;
-  isAlternative?: boolean; // Nouveau champ pour identifier les transporteurs alternatifs
+  isAlternative?: boolean; 
   createdAt: Date;
   updatedAt: Date;
 }
@@ -17,9 +17,7 @@ export interface TransporterContact {
 export class TransporterContactService {
   private static readonly API_BASE = 'http://localhost:5001/api';
 
-  /**
-   * Sauvegarde un contact transporteur
-   */
+ 
   static async saveContact(contactData: Omit<TransporterContact, '_id' | 'createdAt' | 'updatedAt'>): Promise<TransporterContact> {
     try {
       const response = await fetch(`${this.API_BASE}/transporter-contacts`, {
@@ -41,9 +39,7 @@ export class TransporterContactService {
     }
   }
 
-  /**
-   * Récupère les contacts d'une recherche
-   */
+  
   static async getContactsBySearch(searchId: string): Promise<TransporterContact[]> {
     try {
       const response = await fetch(`${this.API_BASE}/transporter-contacts/${searchId}`);

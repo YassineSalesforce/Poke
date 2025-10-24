@@ -18,7 +18,7 @@ export function StatsCard({ userId }: StatsCardProps) {
   useEffect(() => {
     const fetchStats = async () => {
       try {
-        const currentUserId = userId || 'user-1'; // Utiliser l'ID utilisateur passé en props
+        const currentUserId = userId || 'user-1'; 
         const searches = await UserSearchHistoryService.getRecentSearchesWithStatus(currentUserId, 10);
         
         const completedSearches = searches.filter(search => search.status === 'completed');

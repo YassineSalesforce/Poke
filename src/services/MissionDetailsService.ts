@@ -40,7 +40,6 @@ export interface MissionDetailsResponse {
 }
 
 export class MissionDetailsService {
-  // Sauvegarder les détails de mission
   static async saveMissionDetails(data: MissionDetailsData): Promise<MissionDetailsResponse> {
     try {
       const response = await fetch(`${API_BASE_URL}/mission-details`, {
@@ -62,7 +61,6 @@ export class MissionDetailsService {
     }
   }
 
-  // Récupérer tous les détails de mission pour une recherche
   static async getMissionDetailsBySearchId(searchId: string): Promise<MissionDetailsResponse[]> {
     try {
       const response = await fetch(`${API_BASE_URL}/mission-details/${searchId}`);
@@ -78,13 +76,12 @@ export class MissionDetailsService {
     }
   }
 
-  // Récupérer les détails de mission pour un transporteur spécifique
   static async getMissionDetailsByTransporter(searchId: string, transporterId: string): Promise<MissionDetailsResponse | null> {
     try {
       const response = await fetch(`${API_BASE_URL}/mission-details/${searchId}/${transporterId}`);
 
       if (response.status === 404) {
-        return null; // Aucun détail trouvé
+        return null; 
       }
 
       if (!response.ok) {

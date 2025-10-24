@@ -75,7 +75,6 @@ export interface CarrierResponse {
 }
 
 export class CarrierService {
-  // Récupérer tous les transporteurs d'un utilisateur
   static async getAllCarriers(userId: string): Promise<Carrier[]> {
     try {
       const response = await fetch(`${API_BASE_URL}/carriers?userId=${userId}`);
@@ -84,7 +83,6 @@ export class CarrierService {
       }
       const carriers: CarrierResponse[] = await response.json();
       
-      // Convertir les dates string en Date objects
       return carriers.map(carrier => ({
         ...carrier,
         openingDate: new Date(carrier.openingDate),
@@ -97,7 +95,6 @@ export class CarrierService {
     }
   }
 
-  // Récupérer un transporteur par ID
   static async getCarrierById(id: string): Promise<Carrier> {
     try {
       const response = await fetch(`${API_BASE_URL}/carriers/${id}`);
@@ -106,7 +103,6 @@ export class CarrierService {
       }
       const carrier: CarrierResponse = await response.json();
       
-      // Convertir les dates string en Date objects
       return {
         ...carrier,
         openingDate: new Date(carrier.openingDate),
@@ -119,7 +115,6 @@ export class CarrierService {
     }
   }
 
-  // Créer un nouveau transporteur
   static async createCarrier(carrierData: Omit<Carrier, '_id' | 'createdAt' | 'updatedAt'>): Promise<Carrier> {
     try {
       const response = await fetch(`${API_BASE_URL}/carriers`, {
@@ -136,7 +131,6 @@ export class CarrierService {
 
       const carrier: CarrierResponse = await response.json();
       
-      // Convertir les dates string en Date objects
       return {
         ...carrier,
         openingDate: new Date(carrier.openingDate),
@@ -149,7 +143,6 @@ export class CarrierService {
     }
   }
 
-  // Mettre à jour un transporteur
   static async updateCarrier(id: string, carrierData: Partial<Carrier>): Promise<Carrier> {
     try {
       const response = await fetch(`${API_BASE_URL}/carriers/${id}`, {
@@ -166,7 +159,6 @@ export class CarrierService {
 
       const carrier: CarrierResponse = await response.json();
       
-      // Convertir les dates string en Date objects
       return {
         ...carrier,
         openingDate: new Date(carrier.openingDate),
@@ -179,7 +171,6 @@ export class CarrierService {
     }
   }
 
-  // Supprimer un transporteur
   static async deleteCarrier(id: string): Promise<void> {
     try {
       const response = await fetch(`${API_BASE_URL}/carriers/${id}`, {

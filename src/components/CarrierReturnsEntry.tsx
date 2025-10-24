@@ -67,7 +67,7 @@ export function CarrierReturnsEntry({ onBack, onBackToDashboard, onNext, searchC
   const totalTonnes = searchCriteria?.quantite || 5;
   
   const [carriers, setCarriers] = useState([]);
-  const [alternativeCarriers, setAlternativeCarriers] = useState([]); // Nouveau state pour les transporteurs alternatifs
+  const [alternativeCarriers, setAlternativeCarriers] = useState([]); 
   const [loading, setLoading] = useState(true);
   
   const [showMissionDetailsModal, setShowMissionDetailsModal] = useState(false);
@@ -159,7 +159,6 @@ export function CarrierReturnsEntry({ onBack, onBackToDashboard, onNext, searchC
           const missionDetails = await MissionDetailsService.getMissionDetailsBySearchId(searchId);
           console.log('📊 CarrierReturnsEntry - Détails de mission reçus:', missionDetails);
           
-          // Convertir les détails en format local
           const detailsMap = {};
           const savedIds = new Set();
           
@@ -193,24 +192,20 @@ export function CarrierReturnsEntry({ onBack, onBackToDashboard, onNext, searchC
   }, [searchId]);
 
   const calculateRemaining = () => {
-    // Calculer les ensembles confirmés des transporteurs correspondants
     const confirmedRegular = carriers
       .filter(c => c.response === 'yes')
       .reduce((sum, c) => sum + parseInt(c.ensemblesTaken || '0'), 0);
     
-    // Calculer les ensembles confirmés des transporteurs alternatifs
     const confirmedAlternative = alternativeCarriers
       .filter(c => c.response === 'yes')
       .reduce((sum, c) => sum + parseInt(c.ensemblesTaken || '0'), 0);
     
     const confirmed = confirmedRegular + confirmedAlternative;
     
-    // Calculer les ensembles en attente des transporteurs correspondants
     const previsionalRegular = carriers
       .filter(c => c.response === 'pending')
       .reduce((sum, c) => sum + parseInt(c.ensemblesPrevisional || '0'), 0);
     
-    // Calculer les ensembles en attente des transporteurs alternatifs
     const previsionalAlternative = alternativeCarriers
       .filter(c => c.response === 'pending')
       .reduce((sum, c) => sum + parseInt(c.ensemblesPrevisional || '0'), 0);
@@ -252,16 +247,12 @@ export function CarrierReturnsEntry({ onBack, onBackToDashboard, onNext, searchC
   const isOverbooked = totalAllocated > totalTonnes;
   const isComplete = totalAllocated === totalTonnes;
   
-  // Vérifier si tous les transporteurs sont confirmés (pas de pré-réservés)
   const isFullyConfirmed = isComplete && totalPrevisional === 0;
   
-  // Vérifier si tous les transporteurs confirmés ont rempli leur formulaire
   const areAllFormsCompleted = () => {
-    // Vérifier les transporteurs correspondants
     const confirmedCarriers = carriers.filter(carrier => carrier.response === 'yes' && carrier.ensemblesTaken);
     const allRegularFormsCompleted = confirmedCarriers.every(carrier => savedCarriers.has(carrier.id));
     
-    // Vérifier les transporteurs alternatifs
     const confirmedAlternativeCarriers = alternativeCarriers.filter(carrier => carrier.response === 'yes' && carrier.ensemblesTaken);
     const allAlternativeFormsCompleted = confirmedAlternativeCarriers.every(carrier => savedCarriers.has(carrier.id));
     
@@ -269,19 +260,16 @@ export function CarrierReturnsEntry({ onBack, onBackToDashboard, onNext, searchC
   };
 
   const updateCarrier = async (id: string, field: keyof CarrierReturn, value: any) => {
-    // Mettre à jour les transporteurs correspondants
     setCarriers(prev => prev.map(carrier => {
       if (carrier.id === id) {
         const updated = { ...carrier, [field]: value };
         
-        // If response changes to "no", clear previsional
         if (field === 'response' && value === 'no') {
           updated.ensemblesPrevisional = '';
           updated.ensemblesTaken = '';
           updated.validated = false;
         }
         
-        // If response changes to "yes", copy previsional to taken
         if (field === 'response' && value === 'yes') {
           if (updated.ensemblesPrevisional) {
             updated.ensemblesTaken = updated.ensemblesPrevisional;
@@ -289,26 +277,22 @@ export function CarrierReturnsEntry({ onBack, onBackToDashboard, onNext, searchC
           updated.ensemblesPrevisional = '';
         }
         
-        // If response changes to "pending", copy taken to previsional if previsional is empty
         if (field === 'response' && value === 'pending') {
           if (updated.ensemblesTaken && !updated.ensemblesPrevisional) {
             updated.ensemblesPrevisional = updated.ensemblesTaken;
           }
         }
         
-        // If response changes from "pending" to "no", free up previsional
         if (field === 'response' && value === 'no' && carrier.response === 'pending') {
           updated.ensemblesPrevisional = '';
         }
         
-        // Auto-validate if response is yes and ensembles are set
         if (field === 'response' && value === 'yes' && updated.ensemblesTaken) {
           updated.validated = true;
         } else if (field === 'ensemblesTaken' && updated.response === 'yes' && value) {
           updated.validated = true;
         }
         
-        // Sauvegarder automatiquement en base de données
         saveCarrierToDatabase(updated);
         
         return updated;
@@ -316,19 +300,16 @@ export function CarrierReturnsEntry({ onBack, onBackToDashboard, onNext, searchC
       return carrier;
     }));
     
-    // Mettre à jour les transporteurs alternatifs
     setAlternativeCarriers(prev => prev.map(carrier => {
       if (carrier.id === id) {
         const updated = { ...carrier, [field]: value };
         
-        // If response changes to "no", clear previsional
         if (field === 'response' && value === 'no') {
           updated.ensemblesPrevisional = '';
           updated.ensemblesTaken = '';
           updated.validated = false;
         }
         
-        // If response changes to "yes", copy previsional to taken
         if (field === 'response' && value === 'yes') {
           if (updated.ensemblesPrevisional) {
             console.log('✅ ALT - Copie de', updated.ensemblesPrevisional, 'vers ensemblesTaken');
@@ -337,26 +318,22 @@ export function CarrierReturnsEntry({ onBack, onBackToDashboard, onNext, searchC
           updated.ensemblesPrevisional = '';
         }
         
-        // If response changes to "pending", copy taken to previsional if previsional is empty
         if (field === 'response' && value === 'pending') {
           if (updated.ensemblesTaken && !updated.ensemblesPrevisional) {
             updated.ensemblesPrevisional = updated.ensemblesTaken;
           }
         }
         
-        // If response changes from "pending" to "no", free up previsional
         if (field === 'response' && value === 'no' && carrier.response === 'pending') {
           updated.ensemblesPrevisional = '';
         }
         
-        // Auto-validate if response is yes and ensembles are set
         if (field === 'response' && value === 'yes' && updated.ensemblesTaken) {
           updated.validated = true;
         } else if (field === 'ensemblesTaken' && updated.response === 'yes' && value) {
           updated.validated = true;
         }
         
-        // Sauvegarder automatiquement en base de données
         saveCarrierToDatabase(updated);
         
         return updated;
@@ -365,7 +342,6 @@ export function CarrierReturnsEntry({ onBack, onBackToDashboard, onNext, searchC
     }));
   };
 
-  // Fonctions pour gérer les favoris
   const handleToggleFavorite = async (carrier: CarrierReturn) => {
     if (favoritesLoading) return;
     
@@ -374,7 +350,6 @@ export function CarrierReturnsEntry({ onBack, onBackToDashboard, onNext, searchC
       const isFavorite = favorites.has(carrier.id);
       
       if (isFavorite) {
-        // Retirer des favoris
         const effectiveUserId = userId || 'user-1';
         await TransporterFavoriteService.removeFromFavorites(effectiveUserId, carrier.id);
         setFavorites(prev => {
@@ -383,12 +358,10 @@ export function CarrierReturnsEntry({ onBack, onBackToDashboard, onNext, searchC
           return newFavorites;
         });
       } else {
-        // Ajouter aux favoris
         const effectiveUserId = userId || 'user-1';
         await TransporterFavoriteService.addToFavorites(effectiveUserId, carrier.id, carrier.name);
         setFavorites(prev => new Set(prev).add(carrier.id));
         
-        // Si le transporteur est validé (status "yes"), incrémenter les missions réussies
         if (carrier.response === 'yes') {
           try {
             await TransporterFavoriteService.incrementSuccessfulMissions(effectiveUserId, carrier.id);
@@ -404,18 +377,16 @@ export function CarrierReturnsEntry({ onBack, onBackToDashboard, onNext, searchC
     }
   };
 
-  // Fonction pour sauvegarder les changements en base de données
   const saveCarrierToDatabase = async (carrier: CarrierReturn) => {
     if (!searchId) return;
     
     try {
       console.log('💾 Sauvegarde automatique du transporteur:', carrier.name, carrier);
       
-      // Préparer les données pour l'API
       const effectiveUserId = userId || 'user-1';
       const contactData = {
         searchId: searchId,
-        userId: effectiveUserId, // Utiliser l'ID utilisateur depuis les props
+        userId: effectiveUserId, 
         transporterId: carrier.id,
         transporterName: carrier.name,
         route: carrier.route,
@@ -426,7 +397,6 @@ export function CarrierReturnsEntry({ onBack, onBackToDashboard, onNext, searchC
         comment: carrier.comment,
       };
 
-      // Sauvegarder via l'API (créera ou mettra à jour automatiquement)
       await TransporterContactService.saveContact(contactData);
       console.log('✅ Transporteur sauvegardé avec succès');
       
@@ -453,7 +423,6 @@ export function CarrierReturnsEntry({ onBack, onBackToDashboard, onNext, searchC
     return { label: 'En cours', color: 'bg-gray-100 text-gray-700', icon: '⚪' };
   };
 
-  // Fonctions pour gérer le modal de détails de mission
   const handleOpenMissionDetails = (carrier: CarrierReturn) => {
     console.log('Opening mission details for carrier:', carrier.name);
     setSelectedCarrier(carrier);
@@ -468,7 +437,7 @@ export function CarrierReturnsEntry({ onBack, onBackToDashboard, onNext, searchC
         const effectiveUserId = userId || 'user-1';
         const missionData: MissionDetailsData = {
           searchId: searchId,
-          userId: effectiveUserId, // Utiliser l'ID utilisateur depuis les props
+          userId: effectiveUserId, 
           transporterId: selectedCarrier.id,
           transporterName: selectedCarrier.name,
           route: selectedCarrier.route,

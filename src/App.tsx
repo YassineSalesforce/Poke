@@ -72,12 +72,11 @@ function AppContent() {
 
   const handleSearchSubmit = (criteria?: any) => {
     console.log('🚀 App.tsx - handleSearchSubmit appelé avec:', criteria);
-    // Ajouter l'ID utilisateur aux critères
     const criteriaWithUserId = {
       ...criteria,
       userId: user?.id
     };
-    setSearchCriteria(criteriaWithUserId); // Sauvegarder les critères
+    setSearchCriteria(criteriaWithUserId); 
     console.log('💾 searchCriteria sauvegardé:', criteriaWithUserId);
     setHasSearched(true);
     setCurrentScreen('search-results');
@@ -93,13 +92,10 @@ function AppContent() {
   };
 
   const handleBackToResults = async () => {
-    // Recharger les résultats avec les données mises à jour depuis la base de données
     if (searchCriteria?.searchId) {
       try {
-        // Recharger les contacts transporteurs mis à jour
         const updatedContacts = await TransporterContactService.getContactsBySearch(searchCriteria.searchId);
         
-        // Mettre à jour les données des transporteurs
         const updatedCarrierReturns = updatedContacts.map(contact => ({
           id: contact.transporterId,
           name: contact.transporterName,
@@ -113,7 +109,6 @@ function AppContent() {
         
         setCarrierReturns(updatedCarrierReturns);
         
-        // Ajouter les contacts mis à jour aux critères de recherche pour les passer aux résultats
         setSearchCriteria(prev => ({
           ...prev,
           updatedContacts: updatedContacts
@@ -172,7 +167,6 @@ function AppContent() {
   };
 
   const handleSearchClick = (search: any) => {
-    // Définir les critères de recherche pour naviguer vers la page des retours
     setSearchCriteria({
       depart: search.depart,
       arrivee: search.arrivee,
@@ -183,7 +177,6 @@ function AppContent() {
       searchId: search._id
     });
     
-    // Naviguer directement vers la page des retours
     setCurrentScreen('carrier-returns');
   };
 
@@ -199,7 +192,6 @@ function AppContent() {
     setHasSearched(false);
   };
 
-  // Afficher le loading pendant la vérification de l'authentification
   if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: '#F4F5F7' }}>
@@ -215,7 +207,6 @@ function AppContent() {
     );
   }
 
-  // Si l'utilisateur n'est pas authentifié et essaie d'accéder au dashboard
   if (!isAuthenticated && currentScreen !== 'landing') {
     return (
       <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: '#F4F5F7' }}>

@@ -68,7 +68,6 @@ interface SuggestedRoute {
 
 export function RouteManagement({ onBackToDashboard, onLogout }: RouteManagementProps) {
   const { user } = useAuth();
-  // Chaque utilisateur commence avec aucune route - il doit les créer lui-même
   const [routes, setRoutes] = useState<RouteData[]>([]);
 
   const handleLogout = () => {
@@ -76,7 +75,6 @@ export function RouteManagement({ onBackToDashboard, onLogout }: RouteManagement
   };
   const [loading, setLoading] = useState(true);
 
-  // Charger les routes de l'utilisateur depuis la base de données
   useEffect(() => {
     const loadRoutes = async () => {
       if (!user) return;
@@ -86,7 +84,6 @@ export function RouteManagement({ onBackToDashboard, onLogout }: RouteManagement
         const userRoutes = await TransporterRouteService.getRoutesByUser(user.id);
         console.log('Routes chargées depuis la base:', userRoutes);
         
-        // Convertir les routes de la base au format RouteData
         const formattedRoutes = userRoutes.map(route => ({
           id: route._id || '',
           carrierId: route.carrierId,
@@ -166,7 +163,6 @@ export function RouteManagement({ onBackToDashboard, onLogout }: RouteManagement
   const handleSaveRoute = async (routeData: RouteData) => {
     try {
       if (routeData.id) {
-        // Update existing route in database
         await TransporterRouteService.updateRoute(routeData.id, {
           carrierId: routeData.carrierId,
           carrierName: routeData.carrierName,
@@ -182,7 +178,6 @@ export function RouteManagement({ onBackToDashboard, onLogout }: RouteManagement
           isActive: routeData.isActive,
         });
         
-        // Update local state
         setRoutes(prev => prev.map(r => 
           r.id === routeData.id 
             ? { ...routeData, lastUpdated: new Date().toLocaleDateString('fr-FR') + ' ' + new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }) }
@@ -193,7 +188,6 @@ export function RouteManagement({ onBackToDashboard, onLogout }: RouteManagement
           description: `${routeData.carrierName} – ${routeData.originCity} → ${routeData.destinationCity}`,
         });
       } else {
-        // Add new route to database
         if (!user) return;
         
         const savedRoute = await TransporterRouteService.createRoute({
@@ -212,7 +206,6 @@ export function RouteManagement({ onBackToDashboard, onLogout }: RouteManagement
           isActive: routeData.isActive,
         });
         
-        // Add to local state
         const newRoute = {
           id: savedRoute._id || '',
           carrierId: savedRoute.carrierId,
@@ -249,12 +242,10 @@ export function RouteManagement({ onBackToDashboard, onLogout }: RouteManagement
       
       const newStatus = !route.isActive;
       
-      // Update in database
       await TransporterRouteService.updateRoute(routeId, {
         isActive: newStatus,
       });
       
-      // Update local state
       setRoutes(prev => prev.map(r => {
         if (r.id === routeId) {
           toast.success(newStatus ? 'Route réactivée' : 'Route désactivée', {
@@ -275,10 +266,8 @@ export function RouteManagement({ onBackToDashboard, onLogout }: RouteManagement
       const route = routes.find(r => r.id === routeId);
       if (!route) return;
       
-      // Delete from database
       await TransporterRouteService.deleteRoute(routeId);
       
-      // Update local state
       setRoutes(prev => prev.filter(r => r.id !== routeId));
       
       toast.success('Route supprimée', {
@@ -294,7 +283,6 @@ export function RouteManagement({ onBackToDashboard, onLogout }: RouteManagement
     try {
       if (!user) return;
       
-      // Create route in database
       const savedRoute = await TransporterRouteService.createRoute({
         userId: user.id,
         carrierId: suggested.carrierName === 'TRANSARLE' ? '1' : suggested.carrierName === 'CHEVALIER TRANSPORTS' ? '2' : '3',
@@ -311,7 +299,6 @@ export function RouteManagement({ onBackToDashboard, onLogout }: RouteManagement
         isActive: true,
       });
       
-      // Add to local state with real database ID
       const newRoute: RouteData = {
         id: savedRoute._id || '',
         carrierId: savedRoute.carrierId,
