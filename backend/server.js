@@ -31,7 +31,6 @@ const userSchema = new mongoose.Schema({
 
 const User = mongoose.model('User', userSchema);
 
-// Schéma pour les recherches utilisateur
 const userSearchSchema = new mongoose.Schema({
   userId: { type: String, required: true },
   depart: { type: String, required: true },
@@ -46,7 +45,6 @@ const userSearchSchema = new mongoose.Schema({
 
 const UserSearch = mongoose.model('UserSearch', userSearchSchema);
 
-// Schéma pour les contacts transporteurs
 const transporterContactSchema = new mongoose.Schema({
   searchId: { type: String, required: true }, // ID de la recherche liée
   userId: { type: String, required: true },
@@ -64,7 +62,6 @@ const transporterContactSchema = new mongoose.Schema({
 
 const TransporterContact = mongoose.model('TransporterContact', transporterContactSchema);
 
-// Schéma pour les détails de mission
 const missionDetailsSchema = new mongoose.Schema({
   searchId: { type: String, required: true }, // ID de la recherche liée
   userId: { type: String, required: true },
@@ -87,8 +84,8 @@ const missionDetailsSchema = new mongoose.Schema({
 
 const MissionDetails = mongoose.model('MissionDetails', missionDetailsSchema);
 
-// Schéma pour les transporteurs
 const carrierSchema = new mongoose.Schema({
+  userId: { type: String, required: true },
   name: { type: String, required: true },
   siret: { type: String },
   activity: { type: String },
@@ -124,7 +121,23 @@ const carrierSchema = new mongoose.Schema({
     arrival: { type: String },
     distance: { type: Number },
     estimatedTime: { type: Number },
-    isActive: { type: Boolean, default: true }
+    isActive: { type: Boolean, default: true },
+    carrierId: { type: String },
+    carrierName: { type: String },
+    origin: { type: String },
+    destination: { type: String },
+    originCountry: { type: String },
+    originRegion: { type: String },
+    originDepartment: { type: String },
+    originCity: { type: String },
+    destinationCountry: { type: String },
+    destinationRegion: { type: String },
+    destinationDepartment: { type: String },
+    destinationCity: { type: String },
+    vehicleType: { type: String },
+    status: { type: String },
+    closurePeriods: [{ type: mongoose.Schema.Types.Mixed }],
+    lastUpdated: { type: Date }
   }],
   closurePeriods: [{
     startDate: { type: Date },
@@ -137,7 +150,6 @@ const carrierSchema = new mongoose.Schema({
 
 const Carrier = mongoose.model('Carrier', carrierSchema);
 
-// Schéma pour les favoris transporteurs
 const transporterFavoriteSchema = new mongoose.Schema({
   userId: { type: String, required: true },
   transporterId: { type: String, required: true },
@@ -149,26 +161,25 @@ const transporterFavoriteSchema = new mongoose.Schema({
 
 const TransporterFavorite = mongoose.model('TransporterFavorite', transporterFavoriteSchema);
 
-// Schéma pour les routes transporteurs
 const transporterRouteSchema = new mongoose.Schema({
   userId: { type: String, required: true },
   carrierId: { type: String, required: true },
   carrierName: { type: String, required: true },
-  originCountry: { type: String, required: true },
-  originRegion: { type: String, required: true },
-  originDepartment: { type: String, required: true },
-  originCity: { type: String, required: true },
-  destinationCountry: { type: String, required: true },
-  destinationRegion: { type: String, required: true },
-  destinationDepartment: { type: String, required: true },
-  destinationCity: { type: String, required: true },
-  vehicleType: { type: String, required: true },
+  originCountry: { type: String, default: '' },
+  originRegion: { type: String, default: '' },
+  originDepartment: { type: String, default: '' },
+  originCity: { type: String, default: '' },
+  destinationCountry: { type: String, default: '' },
+  destinationRegion: { type: String, default: '' },
+  destinationDepartment: { type: String, default: '' },
+  destinationCity: { type: String, default: '' },
+  vehicleType: { type: String, default: '' },
   isActive: { type: Boolean, default: true },
   createdAt: { type: Date, default: Date.now },
   updatedAt: { type: Date, default: Date.now }
 });
 
-const TransporterRoute = mongoose.model('TransporterRoute', transporterRouteSchema);
+const TransporterRoute = mongoose.model('TransporterRoute', transporterRouteSchema, 'transporter_routes');
 
 const authenticateToken = (req, res, next) => {
   const authHeader = req.headers['authorization'];
@@ -188,7 +199,6 @@ const authenticateToken = (req, res, next) => {
 };
 
 
-// Inscription
 app.post('/api/auth/register', async (req, res) => {
   try {
     const { firstName, lastName, email, password, company, phone } = req.body;
@@ -198,7 +208,6 @@ app.post('/api/auth/register', async (req, res) => {
       return res.status(400).json({ message: 'Un utilisateur avec cet email existe déjà' });
     }
 
-    // Hasher le mot de passe
     const saltRounds = 10;
     const hashedPassword = await bcrypt.hash(password, saltRounds);
 
@@ -299,7 +308,6 @@ app.get('/api/auth/profile', authenticateToken, async (req, res) => {
   }
 });
 
-// Routes pour les recherches utilisateur
 app.post('/api/user-searches', async (req, res) => {
   try {
     const searchData = {
@@ -339,15 +347,23 @@ app.get('/api/user-searches/:userId', async (req, res) => {
 app.delete('/api/user-searches/:searchId', async (req, res) => {
   try {
     const { searchId } = req.params;
-    await UserSearch.findByIdAndDelete(searchId);
+    console.log('🗑️ Suppression de la recherche avec ID:', searchId);
+    
+    const deletedSearch = await UserSearch.findByIdAndDelete(searchId);
+    
+    if (!deletedSearch) {
+      console.log('❌ Recherche non trouvée:', searchId);
+      return res.status(404).json({ message: 'Recherche non trouvée' });
+    }
+    
+    console.log('✅ Recherche supprimée avec succès:', deletedSearch);
     res.json({ message: 'Recherche supprimée' });
   } catch (error) {
-    console.error('Erreur lors de la suppression de la recherche:', error);
+    console.error('❌ Erreur lors de la suppression de la recherche:', error);
     res.status(500).json({ message: 'Erreur serveur' });
   }
 });
 
-// Routes pour les contacts transporteurs
 app.post('/api/transporter-contacts', async (req, res) => {
   try {
     const contactData = {
@@ -356,14 +372,12 @@ app.post('/api/transporter-contacts', async (req, res) => {
       updatedAt: new Date(),
     };
 
-    // Vérifier si un contact existe déjà pour ce transporteur et cette recherche
     const existingContact = await TransporterContact.findOne({
       searchId: contactData.searchId,
       transporterId: contactData.transporterId
     });
 
     if (existingContact) {
-      // Mettre à jour le contact existant
       const updatedContact = await TransporterContact.findByIdAndUpdate(
         existingContact._id,
         { ...contactData, updatedAt: new Date() },
@@ -371,7 +385,6 @@ app.post('/api/transporter-contacts', async (req, res) => {
       );
       res.json(updatedContact);
     } else {
-      // Créer un nouveau contact
       const transporterContact = new TransporterContact(contactData);
       await transporterContact.save();
       res.status(201).json(transporterContact);
@@ -382,13 +395,11 @@ app.post('/api/transporter-contacts', async (req, res) => {
   }
 });
 
-// Route pour compter TOUS les refus d'un transporteur pour un utilisateur (toutes recherches confondues)
 app.get('/api/transporter-refusals/:userId/:transporterId', async (req, res) => {
   try {
     const { userId, transporterId } = req.params;
     console.log(`🔍 Comptage de TOUS les refus pour userId: ${userId}, transporterId: ${transporterId}`);
     
-    // Compter TOUS les refus de ce transporteur pour cet utilisateur, toutes recherches confondues
     const refusalCount = await TransporterContact.countDocuments({
       userId: userId,
       transporterId: transporterId,
@@ -397,7 +408,6 @@ app.get('/api/transporter-refusals/:userId/:transporterId', async (req, res) => 
     
     console.log(`✅ Total de refus trouvés: ${refusalCount} pour transporteur ${transporterId} et utilisateur ${userId}`);
     
-    // Afficher quelques exemples de refus pour debug
     const sampleRefusals = await TransporterContact.find({
       userId: userId,
       transporterId: transporterId,
@@ -429,7 +439,6 @@ app.get('/api/transporter-contacts/:searchId', async (req, res) => {
   }
 });
 
-// Routes pour les détails de mission
 app.post('/api/mission-details', async (req, res) => {
   try {
     const missionData = {
@@ -438,14 +447,12 @@ app.post('/api/mission-details', async (req, res) => {
       updatedAt: new Date(),
     };
 
-    // Vérifier si des détails existent déjà pour ce transporteur et cette recherche
     const existingDetails = await MissionDetails.findOne({
       searchId: missionData.searchId,
       transporterId: missionData.transporterId
     });
 
     if (existingDetails) {
-      // Mettre à jour les détails existants
       const updatedDetails = await MissionDetails.findByIdAndUpdate(
         existingDetails._id,
         { ...missionData, updatedAt: new Date() },
@@ -453,7 +460,6 @@ app.post('/api/mission-details', async (req, res) => {
       );
       res.json(updatedDetails);
     } else {
-      // Créer de nouveaux détails
       const missionDetails = new MissionDetails(missionData);
       await missionDetails.save();
       res.status(201).json(missionDetails);
@@ -500,12 +506,10 @@ app.get('/api/mission-details/:searchId/:transporterId', async (req, res) => {
   }
 });
 
-// Routes pour les favoris transporteurs
 app.post('/api/transporter-favorites', async (req, res) => {
   try {
     const { userId, transporterId, transporterName } = req.body;
 
-    // Vérifier si le favori existe déjà
     const existingFavorite = await TransporterFavorite.findOne({
       userId,
       transporterId
@@ -567,7 +571,6 @@ app.get('/api/transporter-favorites/:userId', async (req, res) => {
   }
 });
 
-// Route pour mettre à jour le nombre de missions réussies
 app.put('/api/transporter-favorites/:userId/:transporterId/increment', async (req, res) => {
   try {
     const { userId, transporterId } = req.params;
@@ -592,8 +595,7 @@ app.put('/api/transporter-favorites/:userId/:transporterId/increment', async (re
   }
 });
 
-// Routes pour les routes transporteurs
-// Créer une nouvelle route
+
 app.post('/api/transporter-routes', async (req, res) => {
   try {
     const routeData = {
@@ -611,7 +613,6 @@ app.post('/api/transporter-routes', async (req, res) => {
   }
 });
 
-// Récupérer les routes d'un utilisateur
 app.get('/api/transporter-routes/:userId', async (req, res) => {
   try {
     const { userId } = req.params;
@@ -628,7 +629,6 @@ app.get('/api/transporter-routes/:userId', async (req, res) => {
   }
 });
 
-// Mettre à jour une route
 app.put('/api/transporter-routes/:id', async (req, res) => {
   try {
     const { id } = req.params;
@@ -654,7 +654,6 @@ app.put('/api/transporter-routes/:id', async (req, res) => {
   }
 });
 
-// Supprimer une route
 app.delete('/api/transporter-routes/:id', async (req, res) => {
   try {
     const { id } = req.params;
@@ -672,11 +671,15 @@ app.delete('/api/transporter-routes/:id', async (req, res) => {
   }
 });
 
-// Routes API pour les transporteurs
-// GET /api/carriers - Récupérer tous les transporteurs
 app.get('/api/carriers', async (req, res) => {
   try {
-    const carriers = await Carrier.find().sort({ createdAt: -1 });
+    const { userId } = req.query;
+    
+    if (!userId) {
+      return res.status(400).json({ message: 'userId est requis' });
+    }
+    
+    const carriers = await Carrier.find({ userId }).sort({ createdAt: -1 });
     res.json(carriers);
   } catch (error) {
     console.error('Erreur lors de la récupération des transporteurs:', error);
@@ -684,7 +687,6 @@ app.get('/api/carriers', async (req, res) => {
   }
 });
 
-// GET /api/carriers/:id - Récupérer un transporteur par ID
 app.get('/api/carriers/:id', async (req, res) => {
   try {
     const carrier = await Carrier.findById(req.params.id);
@@ -698,7 +700,55 @@ app.get('/api/carriers/:id', async (req, res) => {
   }
 });
 
-// POST /api/carriers - Créer un nouveau transporteur
+async function syncCarrierRoutes(carrier) {
+  try {
+    if (!carrier.routes || carrier.routes.length === 0) {
+      return;
+    }
+
+    console.log(`🔄 Synchronisation de ${carrier.routes.length} routes pour le transporteur ${carrier.name}`);
+    
+    for (const route of carrier.routes) {
+      const routeData = {
+        userId: carrier.userId,
+        carrierId: carrier._id.toString(),
+        carrierName: carrier.name,
+        originCountry: route.originCountry || '',
+        originRegion: route.originRegion || '',
+        originDepartment: route.originDepartment || '',
+        originCity: route.originCity || '',
+        destinationCountry: route.destinationCountry || '',
+        destinationRegion: route.destinationRegion || '',
+        destinationDepartment: route.destinationDepartment || '',
+        destinationCity: route.destinationCity || '',
+        vehicleType: route.vehicleType || '',
+        isActive: route.isActive !== false,
+        createdAt: route.createdAt || new Date(),
+        updatedAt: new Date()
+      };
+
+      const existingRoute = await TransporterRoute.findOne({
+        carrierId: routeData.carrierId,
+        originDepartment: routeData.originDepartment,
+        originCity: routeData.originCity,
+        destinationDepartment: routeData.destinationDepartment,
+        destinationCity: routeData.destinationCity
+      });
+
+      if (existingRoute) {
+        await TransporterRoute.findByIdAndUpdate(existingRoute._id, routeData);
+        console.log(`✅ Route mise à jour: ${routeData.originCity} → ${routeData.destinationCity}`);
+      } else {
+        const newRoute = new TransporterRoute(routeData);
+        await newRoute.save();
+        console.log(`✅ Nouvelle route créée: ${routeData.originCity} → ${routeData.destinationCity}`);
+      }
+    }
+  } catch (error) {
+    console.error('Erreur lors de la synchronisation des routes:', error);
+  }
+}
+
 app.post('/api/carriers', async (req, res) => {
   try {
     const carrierData = {
@@ -710,6 +760,8 @@ app.post('/api/carriers', async (req, res) => {
     const carrier = new Carrier(carrierData);
     await carrier.save();
     
+    await syncCarrierRoutes(carrier);
+    
     console.log('✅ Nouveau transporteur créé:', carrier.name);
     res.status(201).json(carrier);
   } catch (error) {
@@ -718,7 +770,6 @@ app.post('/api/carriers', async (req, res) => {
   }
 });
 
-// PUT /api/carriers/:id - Mettre à jour un transporteur
 app.put('/api/carriers/:id', async (req, res) => {
   try {
     const carrierData = {
@@ -736,6 +787,8 @@ app.put('/api/carriers/:id', async (req, res) => {
       return res.status(404).json({ message: 'Transporteur non trouvé' });
     }
     
+    await syncCarrierRoutes(carrier);
+    
     console.log('✅ Transporteur mis à jour:', carrier.name);
     res.json(carrier);
   } catch (error) {
@@ -744,7 +797,6 @@ app.put('/api/carriers/:id', async (req, res) => {
   }
 });
 
-// DELETE /api/carriers/:id - Supprimer un transporteur
 app.delete('/api/carriers/:id', async (req, res) => {
   try {
     const carrier = await Carrier.findByIdAndDelete(req.params.id);

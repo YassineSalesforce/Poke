@@ -1,3 +1,4 @@
+import React from 'react';
 import { Search, Plus, Route, ChevronDown, LogOut, Users } from 'lucide-react';
 import { Button } from './ui/button';
 import { Input } from './ui/input';

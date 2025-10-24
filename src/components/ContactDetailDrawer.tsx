@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import {
   Drawer,
@@ -108,7 +108,6 @@ export function ContactDetailDrawer({
   const handleSave = () => {
     if (!formData) return;
 
-    // Check if primary status changed
     if (formData.isPrimary && !contact?.isPrimary && onSetAsPrimary) {
       setShowPrimaryWarning(true);
       return;
@@ -121,7 +120,6 @@ export function ContactDetailDrawer({
       icon: '✅',
     });
 
-    // Auto-close after 1 second
     setTimeout(() => {
       onClose();
     }, 1000);

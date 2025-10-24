@@ -163,4 +163,18 @@ export class UserSearchHistoryService {
       return [];
     }
   }
+
+  static async deleteSearchHistory(searchId: string): Promise<void> {
+    try {
+      const response = await fetch(`${this.API_BASE}/user-searches/${searchId}`, {
+        method: 'DELETE'
+      });
+      if (!response.ok) {
+        throw new Error(`Erreur HTTP: ${response.status}`);
+      }
+    } catch (error) {
+      console.error('Erreur lors de la suppression de la recherche:', error);
+      throw error;
+    }
+  }
 }

@@ -44,6 +44,7 @@ interface CarrierReturnsEntryProps {
   searchCriteria?: any;
   searchId?: string;
   onLogout: () => void;
+  userId?: string;
 }
 
 interface CarrierReturn {
@@ -57,7 +58,7 @@ interface CarrierReturn {
   validated: boolean;
 }
 
-export function CarrierReturnsEntry({ onBack, onBackToDashboard, onNext, searchCriteria, searchId, onLogout }: CarrierReturnsEntryProps) {
+export function CarrierReturnsEntry({ onBack, onBackToDashboard, onNext, searchCriteria, searchId, onLogout, userId }: CarrierReturnsEntryProps) {
   const { user } = useAuth();
 
   const handleLogout = () => {
@@ -97,7 +98,9 @@ export function CarrierReturnsEntry({ onBack, onBackToDashboard, onNext, searchC
   useEffect(() => {
     const loadFavorites = async () => {
       try {
-        const userFavorites = await TransporterFavoriteService.getFavorites(searchCriteria?.userId || 'user-1');
+        const effectiveUserId = userId || 'user-1';
+        console.log('🌟 CarrierReturnsEntry - Chargement des favoris pour userId:', effectiveUserId);
+        const userFavorites = await TransporterFavoriteService.getFavorites(effectiveUserId);
         const favoriteIds = new Set(userFavorites.map(fav => fav.transporterId));
         setFavorites(favoriteIds);
       } catch (error) {
@@ -278,9 +281,19 @@ export function CarrierReturnsEntry({ onBack, onBackToDashboard, onNext, searchC
           updated.validated = false;
         }
         
-        // If response changes to "yes", clear previsional
+        // If response changes to "yes", copy previsional to taken
         if (field === 'response' && value === 'yes') {
+          if (updated.ensemblesPrevisional) {
+            updated.ensemblesTaken = updated.ensemblesPrevisional;
+          }
           updated.ensemblesPrevisional = '';
+        }
+        
+        // If response changes to "pending", copy taken to previsional if previsional is empty
+        if (field === 'response' && value === 'pending') {
+          if (updated.ensemblesTaken && !updated.ensemblesPrevisional) {
+            updated.ensemblesPrevisional = updated.ensemblesTaken;
+          }
         }
         
         // If response changes from "pending" to "no", free up previsional
@@ -315,9 +328,20 @@ export function CarrierReturnsEntry({ onBack, onBackToDashboard, onNext, searchC
           updated.validated = false;
         }
         
-        // If response changes to "yes", clear previsional
+        // If response changes to "yes", copy previsional to taken
         if (field === 'response' && value === 'yes') {
+          if (updated.ensemblesPrevisional) {
+            console.log('✅ ALT - Copie de', updated.ensemblesPrevisional, 'vers ensemblesTaken');
+            updated.ensemblesTaken = updated.ensemblesPrevisional;
+          }
           updated.ensemblesPrevisional = '';
+        }
+        
+        // If response changes to "pending", copy taken to previsional if previsional is empty
+        if (field === 'response' && value === 'pending') {
+          if (updated.ensemblesTaken && !updated.ensemblesPrevisional) {
+            updated.ensemblesPrevisional = updated.ensemblesTaken;
+          }
         }
         
         // If response changes from "pending" to "no", free up previsional
@@ -351,7 +375,8 @@ export function CarrierReturnsEntry({ onBack, onBackToDashboard, onNext, searchC
       
       if (isFavorite) {
         // Retirer des favoris
-        await TransporterFavoriteService.removeFromFavorites(searchCriteria?.userId || 'user-1', carrier.id);
+        const effectiveUserId = userId || 'user-1';
+        await TransporterFavoriteService.removeFromFavorites(effectiveUserId, carrier.id);
         setFavorites(prev => {
           const newFavorites = new Set(prev);
           newFavorites.delete(carrier.id);
@@ -359,13 +384,14 @@ export function CarrierReturnsEntry({ onBack, onBackToDashboard, onNext, searchC
         });
       } else {
         // Ajouter aux favoris
-        await TransporterFavoriteService.addToFavorites(searchCriteria?.userId || 'user-1', carrier.id, carrier.name);
+        const effectiveUserId = userId || 'user-1';
+        await TransporterFavoriteService.addToFavorites(effectiveUserId, carrier.id, carrier.name);
         setFavorites(prev => new Set(prev).add(carrier.id));
         
         // Si le transporteur est validé (status "yes"), incrémenter les missions réussies
         if (carrier.response === 'yes') {
           try {
-            await TransporterFavoriteService.incrementSuccessfulMissions(searchCriteria?.userId || 'user-1', carrier.id);
+            await TransporterFavoriteService.incrementSuccessfulMissions(effectiveUserId, carrier.id);
           } catch (error) {
             console.error('Erreur lors de l\'incrémentation des missions réussies:', error);
           }
@@ -386,9 +412,10 @@ export function CarrierReturnsEntry({ onBack, onBackToDashboard, onNext, searchC
       console.log('💾 Sauvegarde automatique du transporteur:', carrier.name, carrier);
       
       // Préparer les données pour l'API
+      const effectiveUserId = userId || 'user-1';
       const contactData = {
         searchId: searchId,
-        userId: searchCriteria?.userId || 'user-1', // Utiliser l'ID utilisateur depuis les critères
+        userId: effectiveUserId, // Utiliser l'ID utilisateur depuis les props
         transporterId: carrier.id,
         transporterName: carrier.name,
         route: carrier.route,
@@ -438,9 +465,10 @@ export function CarrierReturnsEntry({ onBack, onBackToDashboard, onNext, searchC
       try {
         console.log('Saving mission details for carrier:', selectedCarrier.name, details);
         
+        const effectiveUserId = userId || 'user-1';
         const missionData: MissionDetailsData = {
           searchId: searchId,
-          userId: searchCriteria?.userId || 'user-1', // Utiliser l'ID utilisateur depuis les critères
+          userId: effectiveUserId, // Utiliser l'ID utilisateur depuis les props
           transporterId: selectedCarrier.id,
           transporterName: selectedCarrier.name,
           route: selectedCarrier.route,
@@ -1004,24 +1032,34 @@ export function CarrierReturnsEntry({ onBack, onBackToDashboard, onNext, searchC
 
                         {/* Ensembles Taken */}
                         <div className="flex items-center">
-                          <Input
-                            value={carrier.ensemblesTaken}
-                            onChange={(e) => updateCarrier(carrier.id, 'ensemblesTaken', e.target.value)}
-                            className="h-8 text-xs"
-                            placeholder="0"
-                            disabled={carrier.response !== 'yes'}
-                          />
+                          {carrier.response === 'yes' ? (
+                            <Input
+                              type="number"
+                              value={carrier.ensemblesTaken}
+                              onChange={(e) => updateCarrier(carrier.id, 'ensemblesTaken', e.target.value)}
+                              placeholder="0"
+                              className="h-9 rounded-lg text-sm"
+                              min="0"
+                            />
+                          ) : (
+                            <span className="text-sm text-gray-400">–</span>
+                          )}
                         </div>
 
                         {/* Ensembles Previsional */}
                         <div className="flex items-center">
-                          <Input
-                            value={carrier.ensemblesPrevisional}
-                            onChange={(e) => updateCarrier(carrier.id, 'ensemblesPrevisional', e.target.value)}
-                            className="h-8 text-xs"
-                            placeholder="0"
-                            disabled={carrier.response !== 'pending'}
-                          />
+                          {carrier.response === 'pending' ? (
+                            <Input
+                              type="number"
+                              value={carrier.ensemblesPrevisional}
+                              onChange={(e) => updateCarrier(carrier.id, 'ensemblesPrevisional', e.target.value)}
+                              placeholder="0"
+                              className="h-9 rounded-lg text-sm bg-amber-50"
+                              min="0"
+                            />
+                          ) : (
+                            <span className="text-sm text-gray-400">–</span>
+                          )}
                         </div>
 
                         {/* Comment */}

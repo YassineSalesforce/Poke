@@ -80,7 +80,6 @@ export function MissionOrders({ onBack, onBackToDashboard, searchCriteria, carri
   const [missionDetails, setMissionDetails] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // Charger les détails de mission depuis la base de données
   useEffect(() => {
     const loadMissionDetails = async () => {
       if (!searchId) {
@@ -103,7 +102,6 @@ export function MissionOrders({ onBack, onBackToDashboard, searchCriteria, carri
     loadMissionDetails();
   }, [searchId]);
 
-  // Fonction pour extraire ville et code postal
   const extractCityAndPostalCode = (fullAddress: string) => {
     if (!fullAddress) return 'Adresse non définie';
     
@@ -121,7 +119,6 @@ export function MissionOrders({ onBack, onBackToDashboard, searchCriteria, carri
     return fullAddress;
   };
 
-  // Générer les ordres de mission basés sur les retours des transporteurs
   const generateOrdersFromReturns = () => {
     if (!carrierReturns || carrierReturns.length === 0) {
       return [];
@@ -130,7 +127,6 @@ export function MissionOrders({ onBack, onBackToDashboard, searchCriteria, carri
     return carrierReturns
       .filter(carrier => carrier.response === 'yes' && carrier.ensemblesTaken) // Seulement les confirmés
       .map((carrier, index) => {
-        // Trouver les détails de mission pour ce transporteur
         const details = missionDetails.find(detail => detail.transporterId === carrier.id);
         console.log('📋 Détails de mission pour', carrier.name, ':', details);
         console.log('📞 Phone:', details?.phone, 'Email:', details?.email);
@@ -165,7 +161,6 @@ export function MissionOrders({ onBack, onBackToDashboard, searchCriteria, carri
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [showSendModal, setShowSendModal] = useState(false);
 
-  // Mettre à jour les ordres quand les détails de mission sont chargés
   useEffect(() => {
     if (!loading) {
       setOrders(generateOrdersFromReturns());
@@ -179,15 +174,12 @@ export function MissionOrders({ onBack, onBackToDashboard, searchCriteria, carri
   const allGenerated = orders.every(order => order.generated);
 
   const generateOrderPDF = async (order: OrderData): Promise<Blob> => {
-    // Générer le PDF
     const doc = new jsPDF();
     
-    // Configuration de la page
     const pageWidth = doc.internal.pageSize.getWidth();
     const pageHeight = doc.internal.pageSize.getHeight();
     let yPosition = 20;
 
-    // Fonction pour ajouter du texte avec style
     const addText = (text: string, x: number, y: number, options: any = {}) => {
       doc.setFontSize(options.fontSize || 12);
       doc.setTextColor(options.color || '#000000');
@@ -195,13 +187,11 @@ export function MissionOrders({ onBack, onBackToDashboard, searchCriteria, carri
       doc.text(text, x, y);
     };
 
-    // Fonction pour ajouter une ligne de séparation
     const addLine = (y: number) => {
       doc.setDrawColor(200, 200, 200);
       doc.line(20, y, pageWidth - 20, y);
     };
 
-    // Titre principal
     addText('Ordre de Mission Transport', pageWidth / 2, yPosition, { 
       fontSize: 18, 
       style: 'bold',
@@ -209,7 +199,6 @@ export function MissionOrders({ onBack, onBackToDashboard, searchCriteria, carri
     });
     yPosition += 20;
 
-    // Titre de section
     addText('ORDRE DE MISSION TRANSPORT', pageWidth / 2, yPosition, { 
       fontSize: 16, 
       style: 'bold',
@@ -226,12 +215,10 @@ export function MissionOrders({ onBack, onBackToDashboard, searchCriteria, carri
     addText('Date : ' + new Date().toLocaleDateString('fr-FR'), rightColumn, yPosition, { style: 'bold' });
     yPosition += 10;
 
-    // Numéro de carnet
     const orderNumber = `OMD-2025-${order.id.slice(-6).toUpperCase()}`;
     addText('Référence mission : ' + orderNumber, leftColumn, yPosition, { style: 'bold' });
     yPosition += 15;
 
-    // Informations transporteur
     addText('Transporteur : ' + order.carrierName, leftColumn, yPosition, { style: 'bold' });
     yPosition += 8;
     const email = order.email || 'contact@' + order.carrierName.toLowerCase().replace(/\s+/g, '-') + '.fr';
@@ -239,7 +226,6 @@ export function MissionOrders({ onBack, onBackToDashboard, searchCriteria, carri
     addText('Contact : ' + email + ' / ' + phone, leftColumn, yPosition);
     yPosition += 15;
 
-    // Détails de la mission
     addText('Type de véhicule : ' + order.vehicleType, leftColumn, yPosition, { style: 'bold' });
     yPosition += 8;
     addText('Marchandise : ' + order.merchandise, leftColumn, yPosition, { style: 'bold' });
@@ -249,7 +235,6 @@ export function MissionOrders({ onBack, onBackToDashboard, searchCriteria, carri
     addLine(yPosition);
     yPosition += 10;
 
-    // Chargement
     addText('Chargement :', leftColumn, yPosition, { style: 'bold' });
     yPosition += 8;
     addText('> ' + order.loadingLocation, leftColumn, yPosition);
@@ -257,7 +242,6 @@ export function MissionOrders({ onBack, onBackToDashboard, searchCriteria, carri
     addText('> ' + order.loadingDate + ' – ' + order.loadingTime, leftColumn, yPosition);
     yPosition += 15;
 
-    // Livraison
     addText('Livraison :', leftColumn, yPosition, { style: 'bold' });
     yPosition += 8;
     addText('> ' + order.deliveryLocation, leftColumn, yPosition);
@@ -267,21 +251,18 @@ export function MissionOrders({ onBack, onBackToDashboard, searchCriteria, carri
     addLine(yPosition);
     yPosition += 10;
 
-    // Tarification
     addText('Tarification :', leftColumn, yPosition, { style: 'bold' });
     yPosition += 8;
     addText(order.pricePerEnsemble + ' € / tonne', leftColumn, yPosition);
     yPosition += 6;
     addText('Total : ' + order.totalPrice + ' € HT', leftColumn, yPosition, { style: 'bold' });
 
-    // Pied de page
     yPosition = pageHeight - 30;
     addText('Document généré automatiquement le ' + new Date().toLocaleString('fr-FR'), pageWidth / 2, yPosition, { 
       fontSize: 10, 
       color: '#666666' 
     });
 
-    // Retourner le PDF comme blob
     return doc.output('blob');
   };
 
@@ -291,7 +272,6 @@ export function MissionOrders({ onBack, onBackToDashboard, searchCriteria, carri
 
     const pdfBlob = await generateOrderPDF(order);
     
-    // Télécharger le PDF individuellement
     const fileName = `Ordre_Mission_${order.carrierName.replace(/\s+/g, '_')}_${orderId.slice(-6)}.pdf`;
     const url = URL.createObjectURL(pdfBlob);
     const link = document.createElement('a');
@@ -302,7 +282,6 @@ export function MissionOrders({ onBack, onBackToDashboard, searchCriteria, carri
     document.body.removeChild(link);
     URL.revokeObjectURL(url);
 
-    // Marquer l'ordre comme généré
     setOrders(prev => prev.map(o => 
       o.id === orderId ? { ...o, generated: true } : o
     ));
@@ -318,16 +297,13 @@ export function MissionOrders({ onBack, onBackToDashboard, searchCriteria, carri
 
   const handleExportAll = async () => {
     try {
-      // Créer une instance JSZip
       const zip = new JSZip();
       
-      // Générer tous les PDFs et les ajouter au ZIP
       for (const order of orders) {
         const pdfBlob = await generateOrderPDF(order);
         const fileName = `Ordre_Mission_${order.carrierName.replace(/\s+/g, '_')}_${order.id.slice(-6)}.pdf`;
         zip.file(fileName, pdfBlob);
         
-        // Marquer comme généré
         setOrders(prevOrders => 
           prevOrders.map(o => 
             o.id === order.id ? { ...o, generated: true } : o
@@ -335,7 +311,6 @@ export function MissionOrders({ onBack, onBackToDashboard, searchCriteria, carri
         );
       }
       
-      // Générer le ZIP et le télécharger
       const zipBlob = await zip.generateAsync({ type: 'blob' });
       const url = URL.createObjectURL(zipBlob);
       const link = document.createElement('a');

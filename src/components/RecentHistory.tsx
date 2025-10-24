@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Badge } from './ui/badge';
-import { ArrowRight, Loader2, ChevronLeft, ChevronRight } from 'lucide-react';
+import { ArrowRight, Loader2, ChevronLeft, ChevronRight, Trash2 } from 'lucide-react';
 import { UserSearchHistoryService, SearchWithStatus } from '../services/UserSearchHistoryService';
+import { toast } from 'sonner';
 
 interface RecentHistoryProps {
   userId: string;
@@ -10,7 +11,7 @@ interface RecentHistoryProps {
 }
 
 export function RecentHistory({ userId, onSearchClick }: RecentHistoryProps) {
-  const [searches, setSearches] = useState<SearchWithStatus[]>([]);
+  const [searches, setSearches] = useState([] as SearchWithStatus[]);
   const [loading, setLoading] = useState(true);
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
@@ -99,6 +100,40 @@ export function RecentHistory({ userId, onSearchClick }: RecentHistoryProps) {
     setCurrentPage(page);
   };
 
+  const handleDeleteSearch = async (searchId: string, e: any) => {
+    e.stopPropagation();
+    
+    console.log('🗑️ Tentative de suppression de la recherche:', searchId);
+    
+    try {
+      await UserSearchHistoryService.deleteSearchHistory(searchId);
+      console.log('✅ Recherche supprimée avec succès');
+      
+      // Recharger les recherches
+      const allSearches = await UserSearchHistoryService.getUserSearchHistory(userId);
+      console.log('📋 Nombre de recherches après suppression:', allSearches.length);
+      
+      setTotalSearches(allSearches.length);
+      setTotalPages(Math.ceil(allSearches.length / itemsPerPage));
+      
+      if (searches.length === 1 && currentPage > 1) {
+        console.log('📄 Retour à la page précédente');
+        setCurrentPage(currentPage - 1);
+      } else {
+        const startIndex = (currentPage - 1) * itemsPerPage;
+        const endIndex = startIndex + itemsPerPage;
+        const pageSearches = allSearches.slice(startIndex, endIndex);
+        console.log('📋 Nouvelles recherches de la page:', pageSearches.length);
+        setSearches(pageSearches);
+      }
+      
+      toast.success('Recherche supprimée', { icon: '🗑️' });
+    } catch (error) {
+      console.error('❌ Erreur lors de la suppression:', error);
+      toast.error('Erreur lors de la suppression');
+    }
+  };
+
   const generatePageNumbers = (): (number | string)[] => {
     const pages: (number | string)[] = [];
     
@@ -155,7 +190,7 @@ export function RecentHistory({ userId, onSearchClick }: RecentHistoryProps) {
               <div
                 key={search._id}
                 onClick={() => onSearchClick(search)}
-                className="grid grid-cols-[100px_1fr_150px_120px] gap-4 items-center p-3 rounded-lg hover:bg-gray-50 cursor-pointer transition-all hover:shadow-sm border border-transparent hover:border-gray-200"
+                className="grid grid-cols-[100px_1fr_150px_120px] gap-4 items-center p-3 rounded-lg hover:bg-gray-50 cursor-pointer transition-all hover:shadow-sm border border-transparent hover:border-gray-200 group relative"
               >
                 <span className="text-sm text-gray-600">{formatDate(search.createdAt.toString())}</span>
                 <div className="flex items-center gap-2">
@@ -164,9 +199,18 @@ export function RecentHistory({ userId, onSearchClick }: RecentHistoryProps) {
                   <span className="text-sm">{extractCityAndPostalCode(search.arriveeAdresse)}</span>
                 </div>
                 <span className="text-sm text-gray-600">{search.typeVehicule}</span>
-                <Badge className={statusConfig.className}>
-                  {statusConfig.label}
-                </Badge>
+                <div className="flex items-center gap-2">
+                  <Badge className={statusConfig.className}>
+                    {statusConfig.label}
+                  </Badge>
+                  <button
+                    onClick={(e) => handleDeleteSearch(search._id, e)}
+                    className="opacity-0 group-hover:opacity-100 transition-opacity p-1 hover:bg-red-50 rounded"
+                    title="Supprimer"
+                  >
+                    <Trash2 className="w-4 h-4 text-red-500" />
+                  </button>
+                </div>
               </div>
             );
           })}

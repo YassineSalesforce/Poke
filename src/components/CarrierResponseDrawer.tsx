@@ -52,7 +52,6 @@ export function CarrierResponseDrawer({ carrier, isOpen, onClose, onSave }: Carr
       ensemblesTaken: parseInt(ensemblesTaken) || 0,
       comment,
     });
-    // Reset form
     setStatus('pending');
     setEnsemblesTaken('');
     setComment('');

@@ -13,6 +13,8 @@ export class TransporterFavoriteService {
 
   static async addToFavorites(userId: string, transporterId: string, transporterName: string): Promise<TransporterFavorite> {
     try {
+      console.log('⭐ Ajout aux favoris - userId:', userId, 'transporterId:', transporterId, 'name:', transporterName);
+      
       const response = await fetch(`${this.API_BASE}/transporter-favorites`, {
         method: 'POST',
         headers: {
@@ -27,12 +29,15 @@ export class TransporterFavoriteService {
 
       if (!response.ok) {
         const errorData = await response.json();
+        console.error('❌ Erreur lors de l\'ajout aux favoris:', errorData);
         throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
       }
 
-      return await response.json();
+      const result = await response.json();
+      console.log('✅ Favori ajouté avec succès:', result);
+      return result;
     } catch (error) {
-      console.error('Error adding to favorites:', error);
+      console.error('❌ Error adding to favorites:', error);
       throw error;
     }
   }
@@ -55,13 +60,17 @@ export class TransporterFavoriteService {
 
   static async getFavorites(userId: string): Promise<TransporterFavorite[]> {
     try {
+      console.log('🔍 Récupération des favoris pour userId:', userId);
       const response = await fetch(`${this.API_BASE}/transporter-favorites/${userId}`);
       if (!response.ok) {
+        console.error('❌ Erreur HTTP lors de la récupération:', response.status);
         throw new Error(`HTTP error! status: ${response.status}`);
       }
-      return await response.json();
+      const favorites = await response.json();
+      console.log('✅ Favoris récupérés:', favorites.length, 'favoris');
+      return favorites;
     } catch (error) {
-      console.error('Error fetching favorites:', error);
+      console.error('❌ Error fetching favorites:', error);
       return [];
     }
   }

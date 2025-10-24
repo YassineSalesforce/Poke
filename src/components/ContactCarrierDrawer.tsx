@@ -75,7 +75,6 @@ export function ContactCarrierDrawer({
 
   useEffect(() => {
     if (isOpen && carrier) {
-      // Reset form when drawer opens
       setResponse('pending');
       setEnsemblesTaken('');
       setEnsemblesPrevisional('');
@@ -86,7 +85,6 @@ export function ContactCarrierDrawer({
   const handleSaveReturn = () => {
     if (!carrier) return;
 
-    // Validation
     if (response === 'yes' && !ensemblesTaken) {
       toast.error('Veuillez indiquer le nombre de tonnes');
       return;
@@ -145,7 +143,6 @@ export function ContactCarrierDrawer({
 
   if (!carrier) return null;
 
-  // Calculer la couverture basée sur la quantité totale
   const coveragePercent = Math.round(((totalQuantity - remainingEnsembles) / totalQuantity) * 100);
 
   return (
@@ -175,7 +172,6 @@ export function ContactCarrierDrawer({
           </DrawerHeader>
 
           <div className="flex-1 overflow-y-auto p-6 space-y-6">
-            {/* Informations générales */}
             <div>
               <h3 className="mb-4" style={{ color: '#2B3A55' }}>Informations générales</h3>
               <div className="grid grid-cols-2 gap-4">
@@ -228,7 +224,13 @@ export function ContactCarrierDrawer({
                 <div className="flex gap-2">
                   <Button
                     variant={response === 'yes' ? 'default' : 'outline'}
-                    onClick={() => setResponse('yes')}
+                    onClick={() => {
+                      setResponse('yes');
+                      // Copier la valeur prévisionnelle vers les tonnes prises si elle existe
+                      if (ensemblesPrevisional && !ensemblesTaken) {
+                        setEnsemblesTaken(ensemblesPrevisional);
+                      }
+                    }}
                     className="flex-1 rounded-lg"
                     style={response === 'yes' ? { backgroundColor: '#4CAF50', color: 'white' } : {}}
                   >
@@ -244,7 +246,13 @@ export function ContactCarrierDrawer({
                   </Button>
                   <Button
                     variant={response === 'pending' ? 'default' : 'outline'}
-                    onClick={() => setResponse('pending')}
+                    onClick={() => {
+                      setResponse('pending');
+                      // Copier la valeur des tonnes prises vers le prévisionnel si elle existe
+                      if (ensemblesTaken && !ensemblesPrevisional) {
+                        setEnsemblesPrevisional(ensemblesTaken);
+                      }
+                    }}
                     className="flex-1 rounded-lg"
                     style={response === 'pending' ? { backgroundColor: '#F59E0B', color: 'white' } : {}}
                   >

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
+import { useAuth } from '../contexts/AuthContext';
 import {
   Drawer,
   DrawerClose,
@@ -34,8 +35,8 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { Carrier as CarrierService, Contact as ServiceContact, RouteData as ServiceRouteData, ClosurePeriod as ServiceClosurePeriod } from '../services/CarrierService';
+import { RouteDrawer } from './RouteDrawer';
 
-// Utiliser les interfaces du service directement
 type Contact = ServiceContact;
 type RouteData = ServiceRouteData;
 type ClosurePeriod = ServiceClosurePeriod;
@@ -56,6 +57,7 @@ export function CarrierDetailDrawer({
   onSave,
   onDelete,
 }: CarrierDetailDrawerProps) {
+  const { user } = useAuth();
   const [formData, setFormData] = useState<Carrier | null>(null);
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [routes, setRoutes] = useState<RouteData[]>([]);
@@ -67,47 +69,20 @@ export function CarrierDetailDrawer({
   const [showClosureDialog, setShowClosureDialog] = useState(false);
   
   const [editingContact, setEditingContact] = useState<Contact | null>(null);
-  const [editingRoute, setEditingRoute] = useState<RouteData | null>(null);
+  const [editingRoute, setEditingRoute] = useState<any>(null);
   const [newClosurePeriod, setNewClosurePeriod] = useState<Partial<ClosurePeriod>>({});
 
   useEffect(() => {
     if (carrier) {
-      // Transporteur existant - charger ses données
       setFormData(carrier);
       setContacts(carrier.contacts || []);
       
-      // Si le transporteur n'a pas de routes, utiliser les routes par défaut
-      if (!carrier.routes || carrier.routes.length === 0) {
-        setRoutes([
-          { 
-            id: '1', 
-            origin: 'FR33 – Gironde', 
-            destination: 'ES13 – Madrid', 
-            vehicleType: 'Benne', 
-            status: 'actif',
-            closurePeriods: [
-              { id: '1', startDate: '01/08/2025', endDate: '31/08/2025', reason: 'Maintenance infrastructure', active: true }
-            ]
-          },
-          { 
-            id: '2', 
-            origin: 'FR49 – Maine-et-Loire', 
-            destination: 'FR69 – Rhône', 
-            vehicleType: 'Tautliner', 
-            status: 'ferme_temporairement',
-            closurePeriods: [
-              { id: '1', startDate: '15/01/2025', endDate: '28/02/2025', reason: 'Travaux routiers', active: true }
-            ]
-          },
-        ]);
-      } else {
-        setRoutes(carrier.routes);
-      }
+      setRoutes(carrier.routes || []);
       
       setClosurePeriods(carrier.closurePeriods || []);
     } else {
-      // Nouveau transporteur - vider le formulaire
       setFormData({
+        userId: user?.id || '', // Ajouter le userId de l'utilisateur connecté
         name: '',
         siret: '',
         activity: '',
@@ -121,39 +96,14 @@ export function CarrierDetailDrawer({
         closurePeriods: []
       });
       setContacts([]);
-      
-      // Load mock routes par défaut
-      setRoutes([
-        { 
-          id: '1', 
-          origin: 'FR33 – Gironde', 
-          destination: 'ES13 – Madrid', 
-          vehicleType: 'Benne', 
-          status: 'actif',
-          closurePeriods: [
-            { id: '1', startDate: '01/08/2025', endDate: '31/08/2025', reason: 'Maintenance infrastructure', active: true }
-          ]
-        },
-        { 
-          id: '2', 
-          origin: 'FR49 – Maine-et-Loire', 
-          destination: 'FR69 – Rhône', 
-          vehicleType: 'Tautliner', 
-          status: 'ferme_temporairement',
-          closurePeriods: [
-            { id: '1', startDate: '15/01/2025', endDate: '28/02/2025', reason: 'Travaux routiers', active: true }
-          ]
-        },
-      ]);
-      
+      setRoutes([]);
       setClosurePeriods([]);
     }
-  }, [carrier]);
+  }, [carrier, user]);
 
   const handleSave = () => {
     if (!formData) return;
     
-    // Préparer les données complètes du transporteur
     const carrierToSave = {
       ...formData,
       contacts: contacts,
@@ -228,6 +178,98 @@ export function CarrierDetailDrawer({
   const handleDeleteClosurePeriod = (index: number) => {
     setClosurePeriods(prev => prev.filter((_, i) => i !== index));
     toast.success('Période supprimée', { icon: '🗑️' });
+  };
+
+  const handleAddRoute = () => {
+    setEditingRoute(null);
+    setShowRouteDialog(true);
+  };
+
+  const handleEditRouteClick = (route: any) => {
+    console.log('🔄 Édition de la route:', route);
+    
+    const convertedRoute = {
+      id: route.id || route._id,
+      carrierId: route.carrierId || formData?.name || '',
+      carrierName: route.carrierName || formData?.name || '',
+      originCountry: route.originCountry || '',
+      originRegion: route.originRegion || '',
+      originDepartment: route.originDepartment || (route.origin?.split(' ')[0] || ''),
+      originCity: route.originCity || (route.origin?.split(' ').slice(1).join(' ') || ''),
+      destinationCountry: route.destinationCountry || '',
+      destinationRegion: route.destinationRegion || '',
+      destinationDepartment: route.destinationDepartment || (route.destination?.split(' ')[0] || ''),
+      destinationCity: route.destinationCity || (route.destination?.split(' ').slice(1).join(' ') || ''),
+      vehicleType: route.vehicleType || '',
+      isActive: route.isActive !== undefined ? route.isActive : (route.status === 'actif'),
+      lastUpdated: route.lastUpdated
+    };
+    
+    console.log('✅ Route convertie pour le formulaire:', convertedRoute);
+    
+    setEditingRoute(convertedRoute);
+    setShowRouteDialog(true);
+  };
+
+  const handleSaveRoute = (routeData: any) => {
+    console.log('💾 Sauvegarde de la route:', routeData);
+    
+    const convertedRoute = {
+      ...routeData,
+      // Garder tous les champs détaillés pour la synchronisation backend
+      originCountry: routeData.originCountry || '',
+      originRegion: routeData.originRegion || '',
+      originDepartment: routeData.originDepartment || '',
+      originCity: routeData.originCity || '',
+      destinationCountry: routeData.destinationCountry || '',
+      destinationRegion: routeData.destinationRegion || '',
+      destinationDepartment: routeData.destinationDepartment || '',
+      destinationCity: routeData.destinationCity || '',
+      // Champs pour l'affichage
+      origin: routeData.originCity 
+        ? `${routeData.originDepartment || ''} ${routeData.originCity}`.trim()
+        : 'Non défini',
+      destination: routeData.destinationCity 
+        ? `${routeData.destinationDepartment || ''} ${routeData.destinationCity}`.trim()
+        : 'Non défini',
+      vehicleType: routeData.vehicleType || 'Non spécifié',
+      status: routeData.isActive ? 'actif' : 'inactif',
+      closurePeriods: routeData.closurePeriods || []
+    };
+
+    console.log('✅ Route convertie:', convertedRoute);
+
+    if (editingRoute) {
+      // Mode édition
+      console.log('📝 Mode édition - ID de la route:', editingRoute.id);
+      setRoutes(prev => {
+        const updated = prev.map(r => 
+          (r.id && r.id === editingRoute.id) || (r._id && r._id === editingRoute._id) 
+            ? { ...convertedRoute, id: editingRoute.id, _id: editingRoute._id } 
+            : r
+        );
+        console.log('🔄 Routes après modification:', updated);
+        return updated;
+      });
+      toast.success('Route modifiée avec succès', { icon: '✅' });
+    } else {
+      // Mode ajout
+      const newRoute = { ...convertedRoute, id: `route-${Date.now()}` };
+      console.log('➕ Ajout d\'une nouvelle route:', newRoute);
+      setRoutes(prev => {
+        const updated = [...prev, newRoute];
+        console.log('🔄 Routes après ajout:', updated);
+        return updated;
+      });
+      toast.success('Route ajoutée avec succès', { icon: '✅' });
+    }
+    setShowRouteDialog(false);
+    setEditingRoute(null);
+  };
+
+  const handleDeleteRoute = (routeId: string) => {
+    setRoutes(prev => prev.filter(r => r.id !== routeId && r._id !== routeId));
+    toast.success('Route supprimée', { icon: '🗑️' });
   };
 
   const handleMarkTemporarilyClosed = () => {
@@ -549,6 +591,7 @@ export function CarrierDetailDrawer({
                   Routes associées
                 </h3>
                 <Button
+                  onClick={handleAddRoute}
                   size="sm"
                   className="rounded-lg"
                   style={{ backgroundColor: '#F6A20E', color: 'white' }}
@@ -596,11 +639,21 @@ export function CarrierDetailDrawer({
                             </p>
                           </div>
                           <div className="flex items-center gap-1">
-                            <Button variant="ghost" size="sm" className="h-7 px-2 text-xs hover:bg-blue-50">
+                            <Button 
+                              onClick={() => handleEditRouteClick(route)}
+                              variant="ghost" 
+                              size="sm" 
+                              className="h-7 px-2 text-xs hover:bg-blue-50"
+                            >
                               <Edit className="w-3 h-3 mr-1" />
                               Modifier
                             </Button>
-                            <Button variant="ghost" size="sm" className="h-7 px-2 text-xs text-red-600 hover:bg-red-50">
+                            <Button 
+                              onClick={() => handleDeleteRoute(route.id || route._id || '')}
+                              variant="ghost" 
+                              size="sm" 
+                              className="h-7 px-2 text-xs text-red-600 hover:bg-red-50"
+                            >
                               <Trash2 className="w-3 h-3 mr-1" />
                               Supprimer
                             </Button>
@@ -880,6 +933,17 @@ export function CarrierDetailDrawer({
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Route Drawer */}
+      <RouteDrawer
+        route={editingRoute}
+        isOpen={showRouteDialog}
+        onClose={() => {
+          setShowRouteDialog(false);
+          setEditingRoute(null);
+        }}
+        onSave={handleSaveRoute}
+      />
     </>
   );
 }

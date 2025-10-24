@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Card, CardContent } from './ui/card';
 import { Button } from './ui/button';
@@ -42,9 +42,11 @@ export function CarrierManagement({ onBackToDashboard, onLogout }: CarrierManage
   // Charger les transporteurs depuis l'API
   useEffect(() => {
     const loadCarriers = async () => {
+      if (!user) return;
+      
       try {
         setIsLoading(true);
-        const carriersData = await CarrierService.getAllCarriers();
+        const carriersData = await CarrierService.getAllCarriers(user.id);
         setCarriers(carriersData);
       } catch (error) {
         console.error('Erreur lors du chargement des transporteurs:', error);
@@ -55,7 +57,7 @@ export function CarrierManagement({ onBackToDashboard, onLogout }: CarrierManage
     };
 
     loadCarriers();
-  }, []);
+  }, [user]);
 
   const filteredCarriers = carriers.filter(carrier =>
     carrier.name.toLowerCase().includes(searchQuery.toLowerCase())
@@ -72,19 +74,21 @@ export function CarrierManagement({ onBackToDashboard, onLogout }: CarrierManage
   };
 
   const handleSaveCarrier = async (carrierData: Carrier) => {
+    if (!user) return;
+    
     try {
       if (carrierData._id) {
-        // Mise à jour d'un transporteur existant
         const updatedCarrier = await CarrierService.updateCarrier(carrierData._id, carrierData);
         setCarriers(prev => prev.map(c => c._id === carrierData._id ? updatedCarrier : c));
         toast.success('Transporteur mis à jour avec succès');
       } else {
-        // Création d'un nouveau transporteur
-        const newCarrier = await CarrierService.createCarrier(carrierData);
+        // Ajouter le userId pour les nouveaux transporteurs
+        const newCarrierData = { ...carrierData, userId: user.id };
+        const newCarrier = await CarrierService.createCarrier(newCarrierData);
         setCarriers(prev => [newCarrier, ...prev]);
         toast.success('Transporteur créé avec succès');
       }
-      setIsDrawerOpen(false); // Fermer le drawer après sauvegarde
+      setIsDrawerOpen(false); 
     } catch (error) {
       console.error('Erreur lors de la sauvegarde:', error);
       toast.error('Erreur lors de la sauvegarde du transporteur');

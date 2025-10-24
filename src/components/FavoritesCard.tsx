@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Star, Truck, Heart } from 'lucide-react';
 import { TransporterFavoriteService, TransporterFavorite } from '../services/TransporterFavoriteService';
+import { toast } from 'sonner';
 
 interface FavoritesCardProps {
   userId?: string;
@@ -12,19 +13,43 @@ export function FavoritesCard({ userId }: FavoritesCardProps) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const loadFavorites = async () => {
-      try {
-        const userFavorites = await TransporterFavoriteService.getFavorites(userId || 'user-1');
-        setFavorites(userFavorites);
-      } catch (error) {
-        console.error('Erreur lors du chargement des favoris:', error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
     loadFavorites();
-  }, []);
+  }, [userId]);
+
+  const loadFavorites = async () => {
+    try {
+      const effectiveUserId = userId || 'user-1';
+      console.log('🌟 Chargement des favoris pour userId:', effectiveUserId);
+      
+      const userFavorites = await TransporterFavoriteService.getFavorites(effectiveUserId);
+      console.log('✅ Favoris chargés:', userFavorites.length, 'favoris trouvés');
+      console.log('📋 Liste des favoris:', userFavorites);
+      
+      setFavorites(userFavorites);
+    } catch (error) {
+      console.error('❌ Erreur lors du chargement des favoris:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleRemoveFavorite = async (transporterId: string, transporterName: string, e: any) => {
+    e.stopPropagation();
+    console.log('🗑️ Suppression du favori:', transporterId);
+    
+    try {
+      const effectiveUserId = userId || 'user-1';
+      await TransporterFavoriteService.removeFromFavorites(effectiveUserId, transporterId);
+      console.log('✅ Favori supprimé avec succès');
+      
+      toast.success(`${transporterName} retiré des favoris`, { icon: '⭐' });
+      
+      await loadFavorites();
+    } catch (error) {
+      console.error('❌ Erreur lors de la suppression du favori:', error);
+      toast.error('Erreur lors de la suppression du favori');
+    }
+  };
 
   return (
     <Card className="shadow-sm hover:shadow-md transition-all duration-300 rounded-xl border-gray-200">
@@ -54,7 +79,7 @@ export function FavoritesCard({ userId }: FavoritesCardProps) {
           favorites.map((favorite) => (
             <div
               key={favorite._id}
-              className="flex items-center gap-3 p-3 rounded-lg hover:bg-gray-50 cursor-pointer transition-all border border-transparent hover:border-gray-200"
+              className="flex items-center gap-3 p-3 rounded-lg hover:bg-gray-50 cursor-pointer transition-all border border-transparent hover:border-gray-200 group"
             >
               <div
                 className="w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0"
@@ -71,6 +96,13 @@ export function FavoritesCard({ userId }: FavoritesCardProps) {
                   {favorite.successfulMissions} mission{favorite.successfulMissions > 1 ? 's' : ''} réussie{favorite.successfulMissions > 1 ? 's' : ''}
                 </p>
               </div>
+              <button
+                onClick={(e) => handleRemoveFavorite(favorite.transporterId, favorite.transporterName, e)}
+                className="opacity-0 group-hover:opacity-100 transition-all duration-300 p-1.5 hover:bg-amber-50 rounded hover:scale-110 hover:shadow-lg hover:shadow-amber-200"
+                title="Retirer des favoris"
+              >
+                <Star className="w-5 h-5 fill-amber-400 stroke-amber-400 hover:fill-amber-500 hover:stroke-amber-500 transition-colors" />
+              </button>
             </div>
           ))
         )}

@@ -344,6 +344,7 @@ function AppContent() {
               searchCriteria={searchCriteria}
               searchId={searchCriteria?.searchId}
               onLogout={handleLogout}
+              userId={user?.id}
             />
           </motion.div>
         )}

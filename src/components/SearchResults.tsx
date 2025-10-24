@@ -924,7 +924,7 @@ export function SearchResults({ onBack, onBackToDashboard, onNext, onCreateRoute
                   <div className="text-sm text-gray-600">Route</div>
                   <div className="text-sm text-gray-600">Score</div>
                   <div className="text-sm text-gray-600">Confiance</div>
-                  <div className="text-sm text-gray-600">Capacité possible</div>
+                  {/*<div className="text-sm text-gray-600">Capacité possible</div>*/}
                   <div className="text-sm text-gray-600">Statut</div>
                   <div className="text-sm text-gray-600">Action</div>
                 </div>

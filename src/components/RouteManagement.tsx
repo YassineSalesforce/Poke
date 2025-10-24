@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Card, CardContent } from './ui/card';
 import { Button } from './ui/button';
@@ -75,14 +75,15 @@ export function RouteManagement({ onBackToDashboard, onLogout }: RouteManagement
     onLogout();
   };
   const [loading, setLoading] = useState(true);
-  const userId = 'user-1'; // TODO: Récupérer l'ID utilisateur depuis le contexte d'authentification
 
   // Charger les routes de l'utilisateur depuis la base de données
   useEffect(() => {
     const loadRoutes = async () => {
+      if (!user) return;
+      
       setLoading(true);
       try {
-        const userRoutes = await TransporterRouteService.getRoutesByUser(userId);
+        const userRoutes = await TransporterRouteService.getRoutesByUser(user.id);
         console.log('Routes chargées depuis la base:', userRoutes);
         
         // Convertir les routes de la base au format RouteData
@@ -114,7 +115,7 @@ export function RouteManagement({ onBackToDashboard, onLogout }: RouteManagement
     };
 
     loadRoutes();
-  }, []);
+  }, [user]);
 
   const [suggestedRoutes] = useState<SuggestedRoute[]>([
     {
@@ -193,8 +194,10 @@ export function RouteManagement({ onBackToDashboard, onLogout }: RouteManagement
         });
       } else {
         // Add new route to database
+        if (!user) return;
+        
         const savedRoute = await TransporterRouteService.createRoute({
-          userId: userId,
+          userId: user.id,
           carrierId: routeData.carrierId,
           carrierName: routeData.carrierName,
           originCountry: routeData.originCountry,

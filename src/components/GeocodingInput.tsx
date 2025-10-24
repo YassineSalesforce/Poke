@@ -196,7 +196,8 @@ export function GeocodingInput({
                 setShowSuggestions(false);
               }, 200);
             }}
-            className={`pl-14 h-12 ${getStatusColor()} focus:border-orange-500 focus:ring-orange-500`}
+            className={`pl-10 h-12 ${getStatusColor()} focus:border-orange-500 focus:ring-orange-500`}
+            style={{ paddingLeft: '2.5rem' }}
           />
         </div>
 

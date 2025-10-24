@@ -40,6 +40,7 @@ export interface ClosurePeriod {
 
 export interface Carrier {
   _id?: string;
+  userId: string;
   name: string;
   siret?: string;
   activity?: string;
@@ -57,6 +58,7 @@ export interface Carrier {
 
 export interface CarrierResponse {
   _id: string;
+  userId: string;
   name: string;
   siret?: string;
   activity?: string;
@@ -73,10 +75,10 @@ export interface CarrierResponse {
 }
 
 export class CarrierService {
-  // Récupérer tous les transporteurs
-  static async getAllCarriers(): Promise<Carrier[]> {
+  // Récupérer tous les transporteurs d'un utilisateur
+  static async getAllCarriers(userId: string): Promise<Carrier[]> {
     try {
-      const response = await fetch(`${API_BASE_URL}/carriers`);
+      const response = await fetch(`${API_BASE_URL}/carriers?userId=${userId}`);
       if (!response.ok) {
         throw new Error('Erreur lors de la récupération des transporteurs');
       }

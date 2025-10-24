@@ -58,10 +58,13 @@ export function RouteDrawer({ route, isOpen, onClose, onSave }: RouteDrawerProps
   });
 
   useEffect(() => {
+    console.log('📝 RouteDrawer - Route reçue:', route);
     if (route) {
+      console.log('✅ RouteDrawer - Mise à jour du formulaire avec:', route);
       setFormData(route);
     } else {
       // Reset form for new route
+      console.log('🆕 RouteDrawer - Nouveau formulaire');
       setFormData({
         carrierId: '',
         carrierName: '',

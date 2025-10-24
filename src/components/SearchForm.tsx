@@ -340,7 +340,7 @@ export function SearchForm({ onBack, onSearch, showBackButton = true, onLogout, 
                     <GeocodingInput
                       id="origin"
                       label="Origine du transport 📍"
-                      placeholder="     Ex: Bordeaux, 12 rue du Port Bordeaux, ou Gironde (33)"
+                      placeholder="Ex: Bordeaux, 12 rue du Port Bordeaux, ou Gironde (33)"
                       value={originInput}
                       onChange={setOriginInput}
                       onGeocodeResult={setOriginGeocodeResult}
@@ -351,7 +351,7 @@ export function SearchForm({ onBack, onSearch, showBackButton = true, onLogout, 
                     <GeocodingInput
                       id="destination"
                       label="Destination du transport 🎯"
-                      placeholder="     Ex: Madrid, Madrid (ES13), ou Communauté de Madrid"
+                      placeholder="Ex: Madrid, Madrid (ES13), ou Communauté de Madrid"
                       value={destinationInput}
                       onChange={setDestinationInput}
                       onGeocodeResult={setDestinationGeocodeResult}
