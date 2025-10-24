@@ -19,28 +19,46 @@ export function StatsCard({ userId }: StatsCardProps) {
     const fetchStats = async () => {
       try {
         const currentUserId = userId || 'user-1'; // Utiliser l'ID utilisateur passé en props
-        // Utiliser l'historique récent (comme dans RecentHistory)
         const searches = await UserSearchHistoryService.getRecentSearchesWithStatus(currentUserId, 10);
         
-        // Calculer le volume transporté (recherches terminées)
         const completedSearches = searches.filter(search => search.status === 'completed');
         const totalVolume = completedSearches.reduce((sum, search) => sum + search.quantite, 0);
         
-        // Calculer le nombre de missions en cours (transporteurs validés dans les recherches terminées)
         let totalMissions = 0;
+        let searchesWithTop3Success = 0;
+        let totalSearchesWithContacts = 0;
+        
         for (const search of completedSearches) {
           try {
             const contacts = await UserSearchHistoryService.getTransporterContacts(search._id);
-            // Compter seulement les transporteurs avec statut "yes" (validés)
-            const validatedContacts = contacts.filter(contact => contact.status === 'yes');
-            totalMissions += validatedContacts.length;
+            
+            if (contacts.length > 0) {
+              totalSearchesWithContacts++;
+              
+              const validatedContacts = contacts.filter(contact => contact.status === 'yes');
+              totalMissions += validatedContacts.length;
+              
+              const top3Contacts = contacts
+                .filter(contact => !contact.isAlternative) 
+                .slice(0, 3); 
+              
+              const hasTop3Success = top3Contacts.some(contact => contact.status === 'yes');
+              
+              if (hasTop3Success) {
+                searchesWithTop3Success++;
+              }
+            }
           } catch (error) {
             console.error('Erreur lors de la récupération des contacts:', error);
           }
         }
         
+        const successRate = totalSearchesWithContacts > 0 
+          ? Math.round((searchesWithTop3Success / totalSearchesWithContacts) * 100)
+          : 0;
+        
         setStats({
-          successRate: '82 %', // Garder le taux de réussite fixe pour l'instant
+          successRate: `${successRate} %`,
           missionsInProgress: totalMissions.toString(),
           volumeTransported: `${totalVolume} t`
         });
@@ -52,7 +70,7 @@ export function StatsCard({ userId }: StatsCardProps) {
     };
 
     fetchStats();
-  }, []);
+  }, [userId]);
 
   const statsData = [
     {
